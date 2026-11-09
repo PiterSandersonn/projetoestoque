@@ -2,6 +2,7 @@ package com.example.projetoestoque.Services;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -14,6 +15,7 @@ import com.example.projetoestoque.Models.Caixa;
 import com.example.projetoestoque.Models.User;
 import com.example.projetoestoque.Repository.CaixaRepository;
 import com.example.projetoestoque.Repository.VendaRepository;
+import com.example.projetoestoque.ExceptionUserIdError.ExceptionUserId;
 
 import jakarta.transaction.Transactional;
 
@@ -30,7 +32,7 @@ public class CaixaService {
     @Transactional
     public Caixa abrirCaixa(BigDecimal valor, Long userId){
         if(userId == null){
-            throw new RuntimeException("Id do usuario nao pode ser vazio.");
+            throw new ExceptionUserId();
         }
         User usuario = this.userService.findBy(userId); // so para depois eu assinar que ele 'e o responsavel pela venda.
         if(valor == null || valor.compareTo(BigDecimal.ZERO) < 0){
@@ -90,7 +92,7 @@ public class CaixaService {
 
     public Caixa bucarCaixaAberto(Long userId){
         if(userId == null){
-            throw new RuntimeException("Precisa passar o id do usuario.");
+            throw new ExceptionUserId();
         }
         User usuario = userService.findBy(userId);
 
@@ -98,5 +100,16 @@ public class CaixaService {
             
         }
     
+    public List<Caixa> diferencaDosCaixas(Long userId){
+        if(userId == null){
+            throw new ExceptionUserId();
+        }
+        this.userService.findBy(userId);
+
+        LocalDateTime dataInicial = LocalDateTime.now().withDayOfMonth(1);
+
+        return this.caixaRepository.buscarDiferencasDoPeriodo(userId, dataInicial, LocalDateTime.now());
+        
+    }    
 }
   

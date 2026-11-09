@@ -8,6 +8,7 @@ import java.util.List;
 import com.example.projetoestoque.Enum.StatusCaixa;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -25,17 +26,23 @@ public class Caixa {
     @GeneratedValue(strategy= GenerationType.IDENTITY)
     @Id 
     private Long id;
+
+    @Column(name= "horario_abertura", nullable = false)
     @NotNull(message= "Horario de abertura nao pode ser nulo.")
     private LocalDateTime horarioAbertura;
     
     private LocalDateTime horarioFechamento;
+    @Column(name= "valor_inicial", nullable = false)
     @NotNull(message="Coloque o valor que contem no caixa quando for inicia-lo.")
     private BigDecimal valorInicial;
-   
+    
+    @Column(name= "valor_contado")
     private BigDecimal valorContado;
 
+    @Column(name= "valor_esperado")
     private BigDecimal valorEsperado;
 
+    @Column(name= "diferenca")
     private BigDecimal diferenca;
 
     @Enumerated(EnumType.STRING)

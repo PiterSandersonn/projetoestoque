@@ -1,7 +1,9 @@
 package com.example.projetoestoque.Controller;
 
 import java.math.BigDecimal;
+import java.util.List;
 
+import org.apache.catalina.connector.Response;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -39,7 +41,7 @@ public class CaixaController {
         }
     }
     
-    @PutMapping("fechamentoCaixa/{caixaId}")
+    @PutMapping("/fechamentoCaixa/{caixaId}")
     public ResponseEntity<?> fechamentoCaixa(@PathVariable Long caixaId, @Valid @RequestBody CaixaFecharDTO dto) {
         try {
             Caixa caixa = this.caixaService.fecharCaixa(dto, caixaId);
@@ -55,6 +57,16 @@ public class CaixaController {
             return ResponseEntity.ok().body(caixa);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body("Ocorreu um erro: "+e.getMessage());
+        }
+    }
+
+    @GetMapping("/buscarDiferencas/{userId}")
+    public ResponseEntity<?> buscarDiferenca(@PathVariable ("userId") Long userId){
+        try {
+            List<Caixa> caixasComDiferencas = this.caixaService.diferencaDosCaixas(userId); 
+            return ResponseEntity.ok().body(caixasComDiferencas);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body("ocorreu um erro: "+e.getMessage());
         }
     }
     
