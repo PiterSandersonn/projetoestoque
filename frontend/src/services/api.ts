@@ -1,17 +1,19 @@
 // src/services/api.ts
 
-const BASE_URL = 'http://localhost:8080';
+const BASE_URL = (
+  import.meta.env.VITE_API_URL || 'http://localhost:8080'
+).replace(/\/$/, '');
 
 type RequestData = unknown;
 
 async function handleResponse<T>(
   response: Response
- ): Promise<T> {
+): Promise<T> {
   const responseText = await response.text();
 
   if (!response.ok) {
     throw new Error(
-      responseText || 'Erro ao processar a requisicao.'
+      responseText || 'Erro ao processar a requisição.'
     );
   }
 
