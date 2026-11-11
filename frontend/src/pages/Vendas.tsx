@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { api } from '../services/api';
+import React, { useEffect, useState } from "react";
+import { api } from "../services/api";
 
 interface Produto {
   id: number;
@@ -7,6 +7,7 @@ interface Produto {
   quantidade: number;
   valor: number;
   categoria?: string;
+  tipoVenda: "UNIDADE" | "PESO";
 }
 
 interface Caixa {
@@ -17,7 +18,7 @@ interface Caixa {
   diferenca?: number;
   horarioAbertura?: string;
   horarioFechamento?: string;
-  status: 'ABERTO' | 'FECHADO';
+  status: "ABERTO" | "FECHADO";
 }
 
 interface ItemCarrinho {
@@ -28,17 +29,13 @@ interface ItemCarrinho {
 
 interface VendasProps {
   onNavegar?: (
-    tela: 'dashboard' | 'produtos' | 'vendas' | 'movimentacoes'
+    tela: "dashboard" | "produtos" | "vendas" | "movimentacoes",
   ) => void;
   onLogout?: () => void;
 }
 
 type FormaPagamento =
-  | 'DINHEIRO'
-  | 'PIX'
-  | 'CARTAO_CREDITO'
-  | 'CARTAO_DEBITO'
-  | 'FIADO';
+  "DINHEIRO" | "PIX" | "CARTAO_CREDITO" | "CARTAO_DEBITO" | "FIADO";
 
 interface Mensagem {
   texto: string;
@@ -49,39 +46,48 @@ function normalizarProduto(
   produto: Produto & {
     name_produtos?: string;
     valor_produto?: number;
-  }
+    tipo_venda?: "UNIDADE" | "PESO";
+  },
 ): Produto {
   return {
     id: produto.id,
-    nome:
-      produto.nome ||
-      produto.name_produtos ||
-      'Produto sem nome',
+    nome: produto.nome || produto.name_produtos || "Produto sem nome",
     quantidade: Number(produto.quantidade ?? 0),
-    valor: Number(
-      produto.valor ?? produto.valor_produto ?? 0
-    ),
+    valor: Number(produto.valor ?? produto.valor_produto ?? 0),
     categoria: produto.categoria,
+    tipoVenda: produto.tipoVenda || produto.tipo_venda || "UNIDADE",
   };
 }
 
 function formatarMoeda(valor: number): string {
-  return Number(valor || 0).toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
+  return Number(valor || 0).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
   });
 }
 
-export function Vendas({
-  onNavegar,
-  onLogout,
-}: VendasProps) {
+function formatarQuantidade(
+  quantidade: number,
+  tipoVenda: "UNIDADE" | "PESO",
+): string {
+  if (tipoVenda === "PESO") {
+    return Number(quantidade || 0).toLocaleString("pt-BR", {
+      minimumFractionDigits: 3,
+      maximumFractionDigits: 3,
+    });
+  }
+
+  return Number(quantidade || 0).toLocaleString("pt-BR", {
+    maximumFractionDigits: 0,
+  });
+}
+
+export function Vendas({ onNavegar, onLogout }: VendasProps) {
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([]);
-  const [produtoId, setProdutoId] = useState<number | ''>('');
-  const [qtd, setQtd] = useState<number | ''>(1);
-  const [formaPagamento, setFormaPagamento] =
-    useState<FormaPagamento>('PIX');
+  const [produtoId, setProdutoId] = useState<number | "">("");
+  const [qtd, setQtd] = useState<number | "">(1);
+  const [formaPagamento, setFormaPagamento] = useState<FormaPagamento>("PIX");
   const [mensagem, setMensagem] = useState<Mensagem | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [finalizando, setFinalizando] = useState(false);
@@ -89,34 +95,31 @@ export function Vendas({
   const [carregandoCaixa, setCarregandoCaixa] = useState(true);
   const [abrindoCaixa, setAbrindoCaixa] = useState(false);
   const [fechandoCaixa, setFechandoCaixa] = useState(false);
-  const [valorInicial, setValorInicial] = useState('');
-  const [valorContado, setValorContado] = useState('');
+  const [valorInicial, setValorInicial] = useState("");
+  const [valorContado, setValorContado] = useState("");
   const [modalAbertura, setModalAbertura] = useState(false);
   const [modalFechamento, setModalFechamento] = useState(false);
 
-  const userId = localStorage.getItem('userId');
+  const userId = localStorage.getItem("userId");
 
-  function exibirMensagem(
-    texto: string,
-    erro: boolean = false
-  ) {
+  function exibirMensagem(texto: string, erro: boolean = false) {
     setMensagem({ texto, erro });
     window.setTimeout(() => setMensagem(null), 4500);
   }
 
   function converterValor(valor: string): number {
-    return Number(valor.replace(',', '.'));
+    return Number(valor.replace(",", "."));
   }
 
   function formatarDataHora(valor?: string): string {
-    if (!valor) return '—';
+    if (!valor) return "—";
 
     const data = new Date(valor);
     if (Number.isNaN(data.getTime())) return valor;
 
-    return data.toLocaleString('pt-BR', {
-      dateStyle: 'short',
-      timeStyle: 'short',
+    return data.toLocaleString("pt-BR", {
+      dateStyle: "short",
+      timeStyle: "short",
     });
   }
 
@@ -127,12 +130,12 @@ export function Vendas({
 
     try {
       const resposta = await api.get<Caixa | null>(
-        `/buscarCaixaAberto?userId=${encodeURIComponent(userId)}`
+        `/buscarCaixaAberto?userId=${encodeURIComponent(userId)}`,
       );
 
-      setCaixa(resposta && resposta.status === 'ABERTO' ? resposta : null);
+      setCaixa(resposta && resposta.status === "ABERTO" ? resposta : null);
     } catch (error) {
-      console.error('Erro ao buscar caixa aberto:', error);
+      console.error("Erro ao buscar caixa aberto:", error);
       setCaixa(null);
     } finally {
       setCarregandoCaixa(false);
@@ -143,14 +146,14 @@ export function Vendas({
     event.preventDefault();
 
     if (!userId) {
-      exibirMensagem('Usuário não encontrado. Faça login novamente.', true);
+      exibirMensagem("Usuário não encontrado. Faça login novamente.", true);
       return;
     }
 
     const valor = converterValor(valorInicial);
 
     if (!Number.isFinite(valor) || valor < 0) {
-      exibirMensagem('Informe um valor inicial válido.', true);
+      exibirMensagem("Informe um valor inicial válido.", true);
       return;
     }
 
@@ -159,19 +162,19 @@ export function Vendas({
     try {
       const resposta = await api.post<Caixa>(
         `/AberturaCaixa?valor=${encodeURIComponent(valor.toFixed(2))}&userId=${encodeURIComponent(userId)}`,
-        {}
+        {},
       );
 
       setCaixa(resposta);
-      setValorInicial('');
+      setValorInicial("");
       setModalAbertura(false);
-      exibirMensagem('Caixa aberto com sucesso. As vendas estão liberadas.');
+      exibirMensagem("Caixa aberto com sucesso. As vendas estão liberadas.");
     } catch (error) {
-      console.error('Erro ao abrir caixa:', error);
+      console.error("Erro ao abrir caixa:", error);
       const mensagemErro =
         error instanceof Error
           ? error.message
-          : 'Não foi possível abrir o caixa.';
+          : "Não foi possível abrir o caixa.";
       exibirMensagem(mensagemErro, true);
     } finally {
       setAbrindoCaixa(false);
@@ -182,41 +185,40 @@ export function Vendas({
     event.preventDefault();
 
     if (!caixa) {
-      exibirMensagem('Nenhum caixa aberto foi encontrado.', true);
+      exibirMensagem("Nenhum caixa aberto foi encontrado.", true);
       return;
     }
 
     const valor = converterValor(valorContado);
 
     if (!Number.isFinite(valor) || valor < 0) {
-      exibirMensagem('Informe um valor contado válido.', true);
+      exibirMensagem("Informe um valor contado válido.", true);
       return;
     }
 
     setFechandoCaixa(true);
 
     try {
-      const resposta = await api.put<Caixa>(
-        `/fechamentoCaixa/${caixa.id}`,
-        { valorInformado: valor }
-      );
+      const resposta = await api.put<Caixa>(`/fechamentoCaixa/${caixa.id}`, {
+        valorInformado: valor,
+      });
 
       setCaixa(null);
-      setValorContado('');
+      setValorContado("");
       setModalFechamento(false);
 
       const diferenca = Number(resposta?.diferenca ?? 0);
       const textoDiferenca = formatarMoeda(diferenca);
 
       exibirMensagem(
-        `Caixa fechado com sucesso. Diferença apurada: ${textoDiferenca}.`
+        `Caixa fechado com sucesso. Diferença apurada: ${textoDiferenca}.`,
       );
     } catch (error) {
-      console.error('Erro ao fechar caixa:', error);
+      console.error("Erro ao fechar caixa:", error);
       const mensagemErro =
         error instanceof Error
           ? error.message
-          : 'Não foi possível fechar o caixa.';
+          : "Não foi possível fechar o caixa.";
       exibirMensagem(mensagemErro, true);
     } finally {
       setFechandoCaixa(false);
@@ -230,9 +232,7 @@ export function Vendas({
 
     try {
       const resposta = await api.get<Produto[]>(
-        `/returnProdutos?userId=${encodeURIComponent(
-          userId
-        )}&busca=`
+        `/returnProdutos?userId=${encodeURIComponent(userId)}&busca=`,
       );
 
       const lista = Array.isArray(resposta) ? resposta : [];
@@ -243,17 +243,18 @@ export function Vendas({
             produto as Produto & {
               name_produtos?: string;
               valor_produto?: number;
-            }
-          )
-        )
+              tipo_venda?: "UNIDADE" | "PESO";
+            },
+          ),
+        ),
       );
     } catch (error) {
-      console.error('Erro ao carregar produtos:', error);
+      console.error("Erro ao carregar produtos:", error);
 
       const mensagemErro =
         error instanceof Error
           ? error.message
-          : 'Não foi possível carregar os produtos.';
+          : "Não foi possível carregar os produtos.";
 
       exibirMensagem(mensagemErro, true);
     } finally {
@@ -269,7 +270,7 @@ export function Vendas({
   }, [userId]);
 
   function handleNavegar(
-    tela: 'dashboard' | 'produtos' | 'vendas' | 'movimentacoes'
+    tela: "dashboard" | "produtos" | "vendas" | "movimentacoes",
   ) {
     if (onNavegar) {
       onNavegar(tela);
@@ -279,60 +280,73 @@ export function Vendas({
     window.location.href = `/${tela}`;
   }
 
-  function handleAdicionarItem(
-    event: React.FormEvent<HTMLFormElement>
-  ) {
+  function handleAdicionarItem(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!caixa) {
-      exibirMensagem('Abra o caixa antes de adicionar produtos à venda.', true);
+      exibirMensagem("Abra o caixa antes de adicionar produtos à venda.", true);
       return;
     }
 
-    if (produtoId === '') {
-      exibirMensagem('Selecione um produto.', true);
+    if (produtoId === "") {
+      exibirMensagem("Selecione um produto.", true);
+      return;
+    }
+
+    const produtoSelecionado = produtos.find(
+      (produto) => produto.id === Number(produtoId),
+    );
+
+    if (!produtoSelecionado) {
+      exibirMensagem("Produto não encontrado.", true);
       return;
     }
 
     const quantidadeNumerica = Number(qtd);
 
     if (
-      qtd === '' ||
-      !Number.isInteger(quantidadeNumerica) ||
+      qtd === "" ||
+      !Number.isFinite(quantidadeNumerica) ||
       quantidadeNumerica <= 0
     ) {
       exibirMensagem(
-        'A quantidade deve ser um número inteiro maior que zero.',
-        true
+        produtoSelecionado.tipoVenda === "PESO"
+          ? "Informe um peso maior que zero."
+          : "Informe uma quantidade inteira maior que zero.",
+        true,
       );
       return;
     }
 
-    const produtoSelecionado = produtos.find(
-      (produto) => produto.id === Number(produtoId)
-    );
-
-    if (!produtoSelecionado) {
-      exibirMensagem('Produto não encontrado.', true);
+    if (
+      produtoSelecionado.tipoVenda === "UNIDADE" &&
+      !Number.isInteger(quantidadeNumerica)
+    ) {
+      exibirMensagem(
+        "Produtos vendidos por unidade devem ter quantidade inteira.",
+        true,
+      );
       return;
     }
 
     const itemExistente = carrinho.find(
-      (item) => item.produto.id === produtoSelecionado.id
+      (item) => item.produto.id === produtoSelecionado.id,
     );
 
-    const quantidadeNoCarrinho =
-      itemExistente?.qtdDesejada ?? 0;
-    const novaQuantidade =
-      quantidadeNoCarrinho + quantidadeNumerica;
+    const quantidadeNoCarrinho = itemExistente?.qtdDesejada ?? 0;
+    const novaQuantidade = quantidadeNoCarrinho + quantidadeNumerica;
+    const unidadeEstoque =
+      produtoSelecionado.tipoVenda === "PESO" ? "kg" : "un";
 
     if (novaQuantidade > produtoSelecionado.quantidade) {
       exibirMensagem(
-        `Estoque insuficiente. Disponível: ${produtoSelecionado.quantidade} unidade(s).`,
-        true
+        `Estoque insuficiente. Disponível: ${formatarQuantidade(produtoSelecionado.quantidade, produtoSelecionado.tipoVenda)} ${unidadeEstoque}.`,
+        true,
       );
       return;
     }
+
+    const subtotal = novaQuantidade * produtoSelecionado.valor;
 
     if (itemExistente) {
       setCarrinho((carrinhoAtual) =>
@@ -341,11 +355,10 @@ export function Vendas({
             ? {
                 ...item,
                 qtdDesejada: novaQuantidade,
-                subtotal:
-                  novaQuantidade * produtoSelecionado.valor,
+                subtotal,
               }
-            : item
-        )
+            : item,
+        ),
       );
     } else {
       setCarrinho((carrinhoAtual) => [
@@ -353,53 +366,47 @@ export function Vendas({
         {
           produto: produtoSelecionado,
           qtdDesejada: quantidadeNumerica,
-          subtotal:
-            quantidadeNumerica * produtoSelecionado.valor,
+          subtotal: quantidadeNumerica * produtoSelecionado.valor,
         },
       ]);
     }
 
-    setProdutoId('');
+    setProdutoId("");
     setQtd(1);
   }
 
   function handleRemoverItem(produtoIdParaRemover: number) {
     setCarrinho((carrinhoAtual) =>
-      carrinhoAtual.filter(
-        (item) => item.produto.id !== produtoIdParaRemover
-      )
+      carrinhoAtual.filter((item) => item.produto.id !== produtoIdParaRemover),
     );
   }
 
-  const totalGeral = carrinho.reduce(
-    (total, item) => total + item.subtotal,
-    0
-  );
+  const totalGeral = carrinho.reduce((total, item) => total + item.subtotal, 0);
 
   const totalItens = carrinho.reduce(
     (total, item) => total + item.qtdDesejada,
-    0
+    0,
   );
+
+  const produtoSelecionadoAtual = produtos.find(
+    (produto) => produto.id === Number(produtoId),
+  );
+
+  const produtoPorPeso = produtoSelecionadoAtual?.tipoVenda === "PESO";
 
   async function handleFinalizarVenda() {
     if (!caixa) {
-      exibirMensagem(
-        'Abra o caixa antes de finalizar uma venda.',
-        true
-      );
+      exibirMensagem("Abra o caixa antes de finalizar uma venda.", true);
       return;
     }
 
     if (!userId) {
-      exibirMensagem(
-        'Usuário não encontrado. Faça login novamente.',
-        true
-      );
+      exibirMensagem("Usuário não encontrado. Faça login novamente.", true);
       return;
     }
 
     if (carrinho.length === 0) {
-      exibirMensagem('O carrinho está vazio.', true);
+      exibirMensagem("O carrinho está vazio.", true);
       return;
     }
 
@@ -415,20 +422,18 @@ export function Vendas({
     setFinalizando(true);
 
     try {
-      await api.post('/createVenda/', dadosVenda);
+      await api.post("/createVenda/", dadosVenda);
 
-      exibirMensagem('Venda realizada com sucesso!');
+      exibirMensagem("Venda realizada com sucesso!");
       setCarrinho([]);
-      setProdutoId('');
+      setProdutoId("");
       setQtd(1);
       await carregarProdutos();
     } catch (error) {
-      console.error('Erro ao finalizar venda:', error);
+      console.error("Erro ao finalizar venda:", error);
 
       const mensagemErro =
-        error instanceof Error
-          ? error.message
-          : 'Erro ao processar a venda.';
+        error instanceof Error ? error.message : "Erro ao processar a venda.";
 
       exibirMensagem(mensagemErro, true);
     } finally {
@@ -437,15 +442,15 @@ export function Vendas({
   }
 
   function handleLogout() {
-    localStorage.removeItem('userId');
-    localStorage.removeItem('usuarioLogado');
+    localStorage.removeItem("userId");
+    localStorage.removeItem("usuarioLogado");
 
     if (onLogout) {
       onLogout();
       return;
     }
 
-    window.location.href = '/';
+    window.location.href = "/";
   }
 
   if (!userId) return null;
@@ -457,19 +462,15 @@ export function Vendas({
           <div style={styles.brand}>
             <div style={styles.logoIcon}>📦</div>
             <div>
-              <strong style={styles.brandTitle}>
-                Sistema de Estoque
-              </strong>
-              <span style={styles.brandSubtitle}>
-                Gestão comercial
-              </span>
+              <strong style={styles.brandTitle}>Sistema de Estoque</strong>
+              <span style={styles.brandSubtitle}>Gestão comercial</span>
             </div>
           </div>
 
           <nav style={styles.navigation}>
             <button
               type="button"
-              onClick={() => handleNavegar('dashboard')}
+              onClick={() => handleNavegar("dashboard")}
               style={styles.navButton}
             >
               <span>▦</span> Dashboard
@@ -477,7 +478,7 @@ export function Vendas({
 
             <button
               type="button"
-              onClick={() => handleNavegar('produtos')}
+              onClick={() => handleNavegar("produtos")}
               style={styles.navButton}
             >
               <span>📦</span> Produtos
@@ -485,7 +486,7 @@ export function Vendas({
 
             <button
               type="button"
-              onClick={() => handleNavegar('vendas')}
+              onClick={() => handleNavegar("vendas")}
               style={{
                 ...styles.navButton,
                 ...styles.navButtonActive,
@@ -496,7 +497,7 @@ export function Vendas({
 
             <button
               type="button"
-              onClick={() => handleNavegar('movimentacoes')}
+              onClick={() => handleNavegar("movimentacoes")}
               style={styles.navButton}
             >
               <span>↕</span> Movimentações
@@ -507,12 +508,8 @@ export function Vendas({
         <div style={styles.sidebarUser}>
           <div style={styles.avatar}>U</div>
           <div>
-            <strong style={styles.userName}>
-              Usuário conectado
-            </strong>
-            <span style={styles.userRole}>
-              Frente de caixa · ID {userId}
-            </span>
+            <strong style={styles.userName}>Usuário conectado</strong>
+            <span style={styles.userRole}>Frente de caixa · ID {userId}</span>
           </div>
         </div>
       </aside>
@@ -520,12 +517,8 @@ export function Vendas({
       <div style={styles.mainArea}>
         <header style={styles.header}>
           <div>
-            <span style={styles.headerEyebrow}>
-              OPERAÇÃO DE VENDAS
-            </span>
-            <strong style={styles.headerTitle}>
-              Frente de caixa
-            </strong>
+            <span style={styles.headerEyebrow}>OPERAÇÃO DE VENDAS</span>
+            <strong style={styles.headerTitle}>Frente de caixa</strong>
           </div>
 
           <button
@@ -559,7 +552,7 @@ export function Vendas({
                   ...(caixa ? {} : styles.statusDotClosed),
                 }}
               />
-              {caixa ? 'Caixa aberto' : 'Caixa fechado'}
+              {caixa ? "Caixa aberto" : "Caixa fechado"}
             </div>
           </div>
 
@@ -572,9 +565,7 @@ export function Vendas({
                   : styles.successMessage),
               }}
             >
-              <strong>
-                {mensagem.erro ? 'Atenção: ' : 'Concluído: '}
-              </strong>
+              <strong>{mensagem.erro ? "Atenção: " : "Concluído: "}</strong>
               {mensagem.texto}
             </div>
           )}
@@ -586,29 +577,31 @@ export function Vendas({
             }}
           >
             <div style={styles.cashCardInfo}>
-              <div style={styles.cashCardIcon}>{caixa ? '✓' : '!'}</div>
+              <div style={styles.cashCardIcon}>{caixa ? "✓" : "!"}</div>
               <div>
                 <span style={styles.cashCardLabel}>CONTROLE DE CAIXA</span>
                 <strong style={styles.cashCardTitle}>
                   {carregandoCaixa
-                    ? 'Verificando caixa...'
+                    ? "Verificando caixa..."
                     : caixa
-                      ? 'Caixa aberto'
-                      : 'Nenhum caixa aberto'}
+                      ? "Caixa aberto"
+                      : "Nenhum caixa aberto"}
                 </strong>
                 <span style={styles.cashCardCaption}>
                   {carregandoCaixa
-                    ? 'Aguarde um momento.'
+                    ? "Aguarde um momento."
                     : caixa
                       ? `Abertura: ${formatarDataHora(caixa.horarioAbertura)} · Valor inicial: ${formatarMoeda(Number(caixa.valorInicial || 0))}`
-                      : 'Abra o caixa para liberar o registro de vendas.'}
+                      : "Abra o caixa para liberar o registro de vendas."}
                 </span>
               </div>
             </div>
 
             <button
               type="button"
-              onClick={() => (caixa ? setModalFechamento(true) : setModalAbertura(true))}
+              onClick={() =>
+                caixa ? setModalFechamento(true) : setModalAbertura(true)
+              }
               disabled={carregandoCaixa || abrindoCaixa || fechandoCaixa}
               style={{
                 ...styles.cashActionButton,
@@ -618,16 +611,24 @@ export function Vendas({
                   : {}),
               }}
             >
-              {caixa ? 'Fechar caixa' : 'Abrir caixa'}
+              {caixa ? "Fechar caixa" : "Abrir caixa"}
             </button>
           </section>
 
           <section style={styles.summaryGrid}>
             <div style={styles.summaryCard}>
               <span style={styles.summaryLabel}>ITENS NO CARRINHO</span>
-              <strong style={styles.summaryValue}>{totalItens}</strong>
+              <strong style={styles.summaryValue}>
+                {carrinho.length === 1
+                  ? `${formatarQuantidade(carrinho[0].qtdDesejada, carrinho[0].produto.tipoVenda)} ${carrinho[0].produto.tipoVenda === "PESO" ? "kg" : "un"}`
+                  : totalItens}
+              </strong>
               <span style={styles.summaryCaption}>
-                {carrinho.length} produto(s) diferente(s)
+                {carrinho.length === 1
+                  ? carrinho[0].produto.tipoVenda === "PESO"
+                    ? "Peso no carrinho"
+                    : "Unidades no carrinho"
+                  : `${carrinho.length} produto(s) diferente(s)`}
               </span>
             </div>
 
@@ -637,7 +638,7 @@ export function Vendas({
                 {formatarMoeda(totalGeral)}
               </strong>
               <span style={styles.summaryCaption}>
-                Pagamento: {formaPagamento.replaceAll('_', ' ')}
+                Pagamento: {formaPagamento.replaceAll("_", " ")}
               </span>
             </div>
 
@@ -672,18 +673,19 @@ export function Vendas({
                     onChange={(event) => {
                       const valorSelecionado = event.target.value;
                       setProdutoId(
-                        valorSelecionado === ''
-                          ? ''
-                          : Number(valorSelecionado)
+                        valorSelecionado === "" ? "" : Number(valorSelecionado),
                       );
+                      setQtd(1);
                     }}
-                    disabled={carregando || finalizando || carregandoCaixa || !caixa}
+                    disabled={
+                      carregando || finalizando || carregandoCaixa || !caixa
+                    }
                     style={styles.input}
                   >
                     <option value="">
                       {carregando
-                        ? 'Carregando produtos...'
-                        : 'Selecione um produto'}
+                        ? "Carregando produtos..."
+                        : "Selecione um produto"}
                     </option>
                     {produtos.map((produto) => (
                       <option
@@ -691,41 +693,52 @@ export function Vendas({
                         value={produto.id}
                         disabled={produto.quantidade <= 0}
                       >
-                        {produto.nome} · {formatarMoeda(produto.valor)} · estoque:{' '}
-                        {produto.quantidade}
+                        {produto.nome} · {formatarMoeda(produto.valor)}{" "}
+                        {produto.tipoVenda === "PESO" ? "/kg" : "/un"} ·
+                        estoque:{" "}
+                        {formatarQuantidade(
+                          produto.quantidade,
+                          produto.tipoVenda,
+                        )}{" "}
+                        {produto.tipoVenda === "PESO" ? "kg" : "un"}
                       </option>
                     ))}
                   </select>
                 </div>
 
                 <div style={styles.formGroup}>
-                  <label style={styles.label}>Quantidade</label>
+                  <label style={styles.label}>
+                    {produtoPorPeso ? "Peso (kg)" : "Quantidade (unidades)"}
+                  </label>
                   <input
                     type="number"
-                    min="1"
-                    step="1"
+                    min={produtoPorPeso ? "0.001" : "1"}
+                    step={produtoPorPeso ? "0.001" : "1"}
                     value={qtd}
                     onChange={(event) => {
                       const valorDigitado = event.target.value;
-                      setQtd(
-                        valorDigitado === ''
-                          ? ''
-                          : Number(valorDigitado)
-                      );
+                      setQtd(valorDigitado === "" ? "" : Number(valorDigitado));
                     }}
-                    disabled={carregando || finalizando || carregandoCaixa || !caixa}
+                    disabled={
+                      carregando || finalizando || carregandoCaixa || !caixa
+                    }
                     style={styles.input}
                   />
+                  <span style={styles.fieldHint}>
+                    {produtoPorPeso
+                      ? "Informe o peso em quilogramas. Ex.: 0,750 kg"
+                      : "Informe uma quantidade inteira. Ex.: 1 unidade"}
+                  </span>
                 </div>
 
                 <button
                   type="submit"
-                  disabled={carregando || finalizando || carregandoCaixa || !caixa}
+                  disabled={
+                    carregando || finalizando || carregandoCaixa || !caixa
+                  }
                   style={{
                     ...styles.addButton,
-                    ...(carregando || finalizando
-                      ? styles.disabledButton
-                      : {}),
+                    ...(carregando || finalizando ? styles.disabledButton : {}),
                   }}
                 >
                   Adicionar ao carrinho
@@ -736,9 +749,7 @@ export function Vendas({
 
               <div style={styles.cardHeaderSmall}>
                 <div>
-                  <h3 style={styles.paymentTitle}>
-                    Forma de pagamento
-                  </h3>
+                  <h3 style={styles.paymentTitle}>Forma de pagamento</h3>
                   <p style={styles.cardSubtitle}>
                     Aplicada uma única vez à venda.
                   </p>
@@ -749,21 +760,15 @@ export function Vendas({
               <select
                 value={formaPagamento}
                 onChange={(event) =>
-                  setFormaPagamento(
-                    event.target.value as FormaPagamento
-                  )
+                  setFormaPagamento(event.target.value as FormaPagamento)
                 }
                 disabled={finalizando || carregandoCaixa || !caixa}
                 style={styles.input}
               >
                 <option value="DINHEIRO">Dinheiro</option>
                 <option value="PIX">Pix</option>
-                <option value="CARTAO_CREDITO">
-                  Cartão de crédito
-                </option>
-                <option value="CARTAO_DEBITO">
-                  Cartão de débito
-                </option>
+                <option value="CARTAO_CREDITO">Cartão de crédito</option>
+                <option value="CARTAO_DEBITO">Cartão de débito</option>
                 <option value="FIADO">Fiado</option>
               </select>
             </section>
@@ -787,9 +792,7 @@ export function Vendas({
                   <strong style={styles.emptyTitle}>
                     Seu carrinho está vazio
                   </strong>
-                  <span>
-                    Adicione produtos ao lado para iniciar a venda.
-                  </span>
+                  <span>Adicione produtos ao lado para iniciar a venda.</span>
                 </div>
               ) : (
                 <div style={styles.tableWrapper}>
@@ -803,7 +806,7 @@ export function Vendas({
                         <th
                           style={{
                             ...styles.tableCell,
-                            textAlign: 'right',
+                            textAlign: "right",
                           }}
                         >
                           AÇÃO
@@ -812,20 +815,21 @@ export function Vendas({
                     </thead>
                     <tbody>
                       {carrinho.map((item) => (
-                        <tr
-                          key={item.produto.id}
-                          style={styles.tableRow}
-                        >
+                        <tr key={item.produto.id} style={styles.tableRow}>
                           <td style={styles.tableCell}>
                             <strong style={styles.productName}>
                               {item.produto.nome}
                             </strong>
                             <span style={styles.productCategory}>
-                              {item.produto.categoria || 'Produto'}
+                              {item.produto.categoria || "Produto"}
                             </span>
                           </td>
                           <td style={styles.tableCell}>
-                            {item.qtdDesejada} un
+                            {formatarQuantidade(
+                              item.qtdDesejada,
+                              item.produto.tipoVenda,
+                            )}{" "}
+                            {item.produto.tipoVenda === "PESO" ? "kg" : "un"}
                           </td>
                           <td style={styles.tableCell}>
                             {formatarMoeda(item.produto.valor)}
@@ -833,8 +837,8 @@ export function Vendas({
                           <td
                             style={{
                               ...styles.tableCell,
-                              fontWeight: '800',
-                              color: '#0f172a',
+                              fontWeight: "800",
+                              color: "#0f172a",
                             }}
                           >
                             {formatarMoeda(item.subtotal)}
@@ -842,14 +846,12 @@ export function Vendas({
                           <td
                             style={{
                               ...styles.tableCell,
-                              textAlign: 'right',
+                              textAlign: "right",
                             }}
                           >
                             <button
                               type="button"
-                              onClick={() =>
-                                handleRemoverItem(item.produto.id)
-                              }
+                              onClick={() => handleRemoverItem(item.produto.id)}
                               disabled={finalizando}
                               style={styles.deleteButton}
                             >
@@ -868,7 +870,9 @@ export function Vendas({
                   <div>
                     <span style={styles.totalLabel}>Total da venda</span>
                     <span style={styles.totalCaption}>
-                      {totalItens} unidade(s)
+                      {carrinho.length === 1
+                        ? `${formatarQuantidade(carrinho[0].qtdDesejada, carrinho[0].produto.tipoVenda)} ${carrinho[0].produto.tipoVenda === "PESO" ? "kg" : "un"}`
+                        : `${carrinho.length} item(ns)`}
                     </span>
                   </div>
                   <strong style={styles.totalValue}>
@@ -879,19 +883,27 @@ export function Vendas({
                 <button
                   type="button"
                   onClick={handleFinalizarVenda}
-                  disabled={carrinho.length === 0 || finalizando || carregandoCaixa || !caixa}
+                  disabled={
+                    carrinho.length === 0 ||
+                    finalizando ||
+                    carregandoCaixa ||
+                    !caixa
+                  }
                   style={{
                     ...styles.finishButton,
-                    ...(carrinho.length === 0 || finalizando || carregandoCaixa || !caixa
+                    ...(carrinho.length === 0 ||
+                    finalizando ||
+                    carregandoCaixa ||
+                    !caixa
                       ? styles.disabledButton
                       : {}),
                   }}
                 >
                   {finalizando
-                    ? 'Processando venda...'
+                    ? "Processando venda..."
                     : !caixa
-                      ? 'Abra o caixa para vender'
-                      : 'Finalizar venda'}
+                      ? "Abra o caixa para vender"
+                      : "Finalizar venda"}
                 </button>
               </div>
             </section>
@@ -945,7 +957,7 @@ export function Vendas({
                   style={styles.primaryModalButton}
                   disabled={abrindoCaixa}
                 >
-                  {abrindoCaixa ? 'Abrindo...' : 'Abrir caixa'}
+                  {abrindoCaixa ? "Abrindo..." : "Abrir caixa"}
                 </button>
               </div>
             </form>
@@ -974,7 +986,9 @@ export function Vendas({
               </p>
               <div style={styles.cashSummaryMini}>
                 <span>Valor inicial</span>
-                <strong>{formatarMoeda(Number(caixa.valorInicial || 0))}</strong>
+                <strong>
+                  {formatarMoeda(Number(caixa.valorInicial || 0))}
+                </strong>
               </div>
               <label style={styles.label} htmlFor="valorContado">
                 Valor contado
@@ -1003,7 +1017,7 @@ export function Vendas({
                   style={styles.closeModalButton}
                   disabled={fechandoCaixa}
                 >
-                  {fechandoCaixa ? 'Fechando...' : 'Fechar caixa'}
+                  {fechandoCaixa ? "Fechando..." : "Fechar caixa"}
                 </button>
               </div>
             </form>
@@ -1016,766 +1030,773 @@ export function Vendas({
 
 const styles: Record<string, React.CSSProperties> = {
   page: {
-    display: 'flex',
-    minHeight: '100vh',
-    backgroundColor: '#f1f5f9',
+    display: "flex",
+    minHeight: "100vh",
+    backgroundColor: "#f1f5f9",
     fontFamily: "'Inter', 'Segoe UI', Arial, sans-serif",
   },
 
   sidebar: {
-    width: '246px',
-    minHeight: '100vh',
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'space-between',
-    backgroundColor: '#0b122b',
-    color: '#ffffff',
-    boxSizing: 'border-box',
+    width: "246px",
+    minHeight: "100vh",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "space-between",
+    backgroundColor: "#0b122b",
+    color: "#ffffff",
+    boxSizing: "border-box",
   },
 
   brand: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    padding: '26px 22px',
-    borderBottom: '1px solid rgba(255,255,255,0.08)',
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    padding: "26px 22px",
+    borderBottom: "1px solid rgba(255,255,255,0.08)",
   },
 
   logoIcon: {
-    width: '34px',
-    height: '34px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: '10px',
-    backgroundColor: '#2563eb',
-    fontSize: '17px',
+    width: "34px",
+    height: "34px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: "10px",
+    backgroundColor: "#2563eb",
+    fontSize: "17px",
   },
 
   brandTitle: {
-    display: 'block',
-    color: '#ffffff',
-    fontSize: '14px',
+    display: "block",
+    color: "#ffffff",
+    fontSize: "14px",
   },
 
   brandSubtitle: {
-    display: 'block',
-    marginTop: '3px',
-    color: '#94a3b8',
-    fontSize: '11px',
+    display: "block",
+    marginTop: "3px",
+    color: "#94a3b8",
+    fontSize: "11px",
   },
 
   navigation: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '7px',
-    padding: '24px 12px',
+    display: "flex",
+    flexDirection: "column",
+    gap: "7px",
+    padding: "24px 12px",
   },
 
   navButton: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    width: '100%',
-    padding: '13px 14px',
-    border: 'none',
-    borderRadius: '9px',
-    backgroundColor: 'transparent',
-    color: '#aab5ce',
-    fontSize: '13px',
-    fontWeight: '600',
-    textAlign: 'left',
-    cursor: 'pointer',
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    width: "100%",
+    padding: "13px 14px",
+    border: "none",
+    borderRadius: "9px",
+    backgroundColor: "transparent",
+    color: "#aab5ce",
+    fontSize: "13px",
+    fontWeight: "600",
+    textAlign: "left",
+    cursor: "pointer",
   },
 
   navButtonActive: {
-    backgroundColor: '#2563eb',
-    color: '#ffffff',
-    boxShadow: '0 8px 20px rgba(37,99,235,0.25)',
+    backgroundColor: "#2563eb",
+    color: "#ffffff",
+    boxShadow: "0 8px 20px rgba(37,99,235,0.25)",
   },
 
   sidebarUser: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    padding: '18px',
-    borderTop: '1px solid rgba(255,255,255,0.08)',
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    padding: "18px",
+    borderTop: "1px solid rgba(255,255,255,0.08)",
   },
 
   avatar: {
-    width: '34px',
-    height: '34px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: '50%',
-    backgroundColor: '#1d4ed8',
-    color: '#ffffff',
-    fontSize: '13px',
-    fontWeight: '700',
+    width: "34px",
+    height: "34px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: "50%",
+    backgroundColor: "#1d4ed8",
+    color: "#ffffff",
+    fontSize: "13px",
+    fontWeight: "700",
   },
 
   userName: {
-    display: 'block',
-    color: '#e2e8f0',
-    fontSize: '12px',
+    display: "block",
+    color: "#e2e8f0",
+    fontSize: "12px",
   },
 
   userRole: {
-    display: 'block',
-    marginTop: '3px',
-    color: '#94a3b8',
-    fontSize: '10px',
+    display: "block",
+    marginTop: "3px",
+    color: "#94a3b8",
+    fontSize: "10px",
   },
 
   mainArea: {
-    display: 'flex',
+    display: "flex",
     flex: 1,
-    flexDirection: 'column',
+    flexDirection: "column",
     minWidth: 0,
   },
 
   header: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    minHeight: '72px',
-    padding: '0 38px',
-    backgroundColor: '#ffffff',
-    borderBottom: '1px solid #e2e8f0',
-    boxSizing: 'border-box',
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    minHeight: "72px",
+    padding: "0 38px",
+    backgroundColor: "#ffffff",
+    borderBottom: "1px solid #e2e8f0",
+    boxSizing: "border-box",
   },
 
   headerEyebrow: {
-    display: 'block',
-    color: '#2563eb',
-    fontSize: '10px',
-    fontWeight: '800',
-    letterSpacing: '1.3px',
+    display: "block",
+    color: "#2563eb",
+    fontSize: "10px",
+    fontWeight: "800",
+    letterSpacing: "1.3px",
   },
 
   headerTitle: {
-    display: 'block',
-    marginTop: '4px',
-    color: '#0f172a',
-    fontSize: '15px',
+    display: "block",
+    marginTop: "4px",
+    color: "#0f172a",
+    fontSize: "15px",
   },
 
   logoutButton: {
-    padding: '9px 15px',
-    border: '1px solid #fecaca',
-    borderRadius: '8px',
-    backgroundColor: '#fff1f2',
-    color: '#dc2626',
-    fontSize: '12px',
-    fontWeight: '700',
-    cursor: 'pointer',
+    padding: "9px 15px",
+    border: "1px solid #fecaca",
+    borderRadius: "8px",
+    backgroundColor: "#fff1f2",
+    color: "#dc2626",
+    fontSize: "12px",
+    fontWeight: "700",
+    cursor: "pointer",
   },
 
   content: {
     flex: 1,
-    padding: '34px 38px',
-    boxSizing: 'border-box',
+    padding: "34px 38px",
+    boxSizing: "border-box",
   },
 
   pageHeading: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: '18px',
-    marginBottom: '24px',
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: "18px",
+    marginBottom: "24px",
   },
 
   eyebrow: {
-    color: '#2563eb',
-    fontSize: '11px',
-    fontWeight: '800',
-    letterSpacing: '1.5px',
+    color: "#2563eb",
+    fontSize: "11px",
+    fontWeight: "800",
+    letterSpacing: "1.5px",
   },
 
   title: {
-    margin: '7px 0 4px',
-    color: '#0f172a',
-    fontSize: '30px',
-    fontWeight: '800',
-    letterSpacing: '-1px',
+    margin: "7px 0 4px",
+    color: "#0f172a",
+    fontSize: "30px",
+    fontWeight: "800",
+    letterSpacing: "-1px",
   },
 
   subtitle: {
     margin: 0,
-    color: '#64748b',
-    fontSize: '14px',
+    color: "#64748b",
+    fontSize: "14px",
   },
 
   statusBadge: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '9px 12px',
-    border: '1px solid #bbf7d0',
-    borderRadius: '20px',
-    backgroundColor: '#f0fdf4',
-    color: '#15803d',
-    fontSize: '12px',
-    fontWeight: '700',
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    padding: "9px 12px",
+    border: "1px solid #bbf7d0",
+    borderRadius: "20px",
+    backgroundColor: "#f0fdf4",
+    color: "#15803d",
+    fontSize: "12px",
+    fontWeight: "700",
   },
 
   statusDot: {
-    width: '7px',
-    height: '7px',
-    borderRadius: '50%',
-    backgroundColor: '#16a34a',
+    width: "7px",
+    height: "7px",
+    borderRadius: "50%",
+    backgroundColor: "#16a34a",
   },
 
   message: {
-    padding: '13px 16px',
-    marginBottom: '20px',
-    borderRadius: '9px',
-    fontSize: '13px',
+    padding: "13px 16px",
+    marginBottom: "20px",
+    borderRadius: "9px",
+    fontSize: "13px",
   },
 
   successMessage: {
-    color: '#166534',
-    backgroundColor: '#f0fdf4',
-    border: '1px solid #bbf7d0',
+    color: "#166534",
+    backgroundColor: "#f0fdf4",
+    border: "1px solid #bbf7d0",
   },
 
   errorMessage: {
-    color: '#991b1b',
-    backgroundColor: '#fef2f2',
-    border: '1px solid #fecaca',
+    color: "#991b1b",
+    backgroundColor: "#fef2f2",
+    border: "1px solid #fecaca",
   },
 
   summaryGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-    gap: '17px',
-    marginBottom: '22px',
+    display: "grid",
+    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+    gap: "17px",
+    marginBottom: "22px",
   },
 
   summaryCard: {
-    minHeight: '112px',
-    padding: '18px 20px',
-    border: '1px solid #e2e8f0',
-    borderRadius: '13px',
-    backgroundColor: '#ffffff',
-    boxShadow: '0 5px 18px rgba(15,23,42,0.04)',
-    boxSizing: 'border-box',
+    minHeight: "112px",
+    padding: "18px 20px",
+    border: "1px solid #e2e8f0",
+    borderRadius: "13px",
+    backgroundColor: "#ffffff",
+    boxShadow: "0 5px 18px rgba(15,23,42,0.04)",
+    boxSizing: "border-box",
   },
 
   summaryLabel: {
-    display: 'block',
-    color: '#64748b',
-    fontSize: '10px',
-    fontWeight: '800',
-    letterSpacing: '0.8px',
+    display: "block",
+    color: "#64748b",
+    fontSize: "10px",
+    fontWeight: "800",
+    letterSpacing: "0.8px",
   },
 
   summaryValue: {
-    display: 'block',
-    marginTop: '12px',
-    color: '#0f172a',
-    fontSize: '24px',
+    display: "block",
+    marginTop: "12px",
+    color: "#0f172a",
+    fontSize: "24px",
   },
 
   summaryValueBlue: {
-    display: 'block',
-    marginTop: '12px',
-    color: '#2563eb',
-    fontSize: '24px',
+    display: "block",
+    marginTop: "12px",
+    color: "#2563eb",
+    fontSize: "24px",
   },
 
   summaryCaption: {
-    display: 'block',
-    marginTop: '4px',
-    color: '#94a3b8',
-    fontSize: '11px',
+    display: "block",
+    marginTop: "4px",
+    color: "#94a3b8",
+    fontSize: "11px",
   },
 
   contentGrid: {
-    display: 'grid',
-    gridTemplateColumns: '340px minmax(0, 1fr)',
-    gap: '22px',
-    alignItems: 'stretch',
+    display: "grid",
+    gridTemplateColumns: "340px minmax(0, 1fr)",
+    gap: "22px",
+    alignItems: "stretch",
   },
 
   selectionCard: {
-    padding: '22px',
-    border: '1px solid #e2e8f0',
-    borderRadius: '14px',
-    backgroundColor: '#ffffff',
-    boxShadow: '0 5px 18px rgba(15,23,42,0.04)',
-    boxSizing: 'border-box',
+    padding: "22px",
+    border: "1px solid #e2e8f0",
+    borderRadius: "14px",
+    backgroundColor: "#ffffff",
+    boxShadow: "0 5px 18px rgba(15,23,42,0.04)",
+    boxSizing: "border-box",
   },
 
   cartCard: {
-    display: 'flex',
-    flexDirection: 'column',
-    minHeight: '480px',
-    padding: '22px',
-    border: '1px solid #e2e8f0',
-    borderRadius: '14px',
-    backgroundColor: '#ffffff',
-    boxShadow: '0 5px 18px rgba(15,23,42,0.04)',
-    boxSizing: 'border-box',
+    display: "flex",
+    flexDirection: "column",
+    minHeight: "480px",
+    padding: "22px",
+    border: "1px solid #e2e8f0",
+    borderRadius: "14px",
+    backgroundColor: "#ffffff",
+    boxShadow: "0 5px 18px rgba(15,23,42,0.04)",
+    boxSizing: "border-box",
   },
 
   cardHeader: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: '12px',
-    marginBottom: '22px',
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: "12px",
+    marginBottom: "22px",
   },
 
   cardHeaderSmall: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: '12px',
-    marginBottom: '12px',
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "12px",
+    marginBottom: "12px",
   },
 
   cardTitle: {
     margin: 0,
-    color: '#172033',
-    fontSize: '16px',
-    fontWeight: '800',
+    color: "#172033",
+    fontSize: "16px",
+    fontWeight: "800",
   },
 
   cardSubtitle: {
-    margin: '5px 0 0',
-    color: '#94a3b8',
-    fontSize: '12px',
+    margin: "5px 0 0",
+    color: "#94a3b8",
+    fontSize: "12px",
     lineHeight: 1.4,
   },
 
   cardIcon: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '30px',
-    height: '30px',
-    borderRadius: '9px',
-    backgroundColor: '#eff6ff',
-    color: '#2563eb',
-    fontSize: '18px',
-    fontWeight: '800',
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "30px",
+    height: "30px",
+    borderRadius: "9px",
+    backgroundColor: "#eff6ff",
+    color: "#2563eb",
+    fontSize: "18px",
+    fontWeight: "800",
   },
 
   paymentIcon: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '28px',
-    height: '28px',
-    borderRadius: '8px',
-    backgroundColor: '#ecfdf5',
-    color: '#047857',
-    fontSize: '14px',
-    fontWeight: '800',
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "28px",
+    height: "28px",
+    borderRadius: "8px",
+    backgroundColor: "#ecfdf5",
+    color: "#047857",
+    fontSize: "14px",
+    fontWeight: "800",
+  },
+
+  fieldHint: {
+    marginTop: "6px",
+    color: "#94a3b8",
+    fontSize: "11px",
+    lineHeight: 1.4,
   },
 
   formGroup: {
-    marginBottom: '16px',
+    marginBottom: "16px",
   },
 
   label: {
-    display: 'block',
-    marginBottom: '7px',
-    color: '#334155',
-    fontSize: '12px',
-    fontWeight: '700',
+    display: "block",
+    marginBottom: "7px",
+    color: "#334155",
+    fontSize: "12px",
+    fontWeight: "700",
   },
 
   input: {
-    width: '100%',
-    padding: '11px 12px',
-    border: '1px solid #cbd5e1',
-    borderRadius: '8px',
-    outline: 'none',
-    backgroundColor: '#ffffff',
-    color: '#0f172a',
-    fontSize: '13px',
-    boxSizing: 'border-box',
+    width: "100%",
+    padding: "11px 12px",
+    border: "1px solid #cbd5e1",
+    borderRadius: "8px",
+    outline: "none",
+    backgroundColor: "#ffffff",
+    color: "#0f172a",
+    fontSize: "13px",
+    boxSizing: "border-box",
   },
 
   addButton: {
-    width: '100%',
-    padding: '12px',
-    border: 'none',
-    borderRadius: '8px',
-    backgroundColor: '#2563eb',
-    color: '#ffffff',
-    fontSize: '13px',
-    fontWeight: '800',
-    cursor: 'pointer',
+    width: "100%",
+    padding: "12px",
+    border: "none",
+    borderRadius: "8px",
+    backgroundColor: "#2563eb",
+    color: "#ffffff",
+    fontSize: "13px",
+    fontWeight: "800",
+    cursor: "pointer",
   },
 
   divider: {
-    height: '1px',
-    margin: '24px 0 20px',
-    backgroundColor: '#e2e8f0',
+    height: "1px",
+    margin: "24px 0 20px",
+    backgroundColor: "#e2e8f0",
   },
 
   paymentTitle: {
     margin: 0,
-    color: '#172033',
-    fontSize: '14px',
-    fontWeight: '800',
+    color: "#172033",
+    fontSize: "14px",
+    fontWeight: "800",
   },
 
   itemCounter: {
-    padding: '6px 10px',
-    borderRadius: '20px',
-    backgroundColor: '#eff6ff',
-    color: '#1d4ed8',
-    fontSize: '11px',
-    fontWeight: '800',
-    whiteSpace: 'nowrap',
+    padding: "6px 10px",
+    borderRadius: "20px",
+    backgroundColor: "#eff6ff",
+    color: "#1d4ed8",
+    fontSize: "11px",
+    fontWeight: "800",
+    whiteSpace: "nowrap",
   },
 
   emptyState: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
     flex: 1,
-    minHeight: '250px',
-    color: '#94a3b8',
-    textAlign: 'center',
-    fontSize: '13px',
-    gap: '6px',
+    minHeight: "250px",
+    color: "#94a3b8",
+    textAlign: "center",
+    fontSize: "13px",
+    gap: "6px",
   },
 
   emptyIcon: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '48px',
-    height: '48px',
-    marginBottom: '6px',
-    borderRadius: '50%',
-    backgroundColor: '#f1f5f9',
-    fontSize: '22px',
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "48px",
+    height: "48px",
+    marginBottom: "6px",
+    borderRadius: "50%",
+    backgroundColor: "#f1f5f9",
+    fontSize: "22px",
   },
 
   emptyTitle: {
-    color: '#475569',
-    fontSize: '14px',
+    color: "#475569",
+    fontSize: "14px",
   },
 
   tableWrapper: {
     flex: 1,
-    overflowX: 'auto',
+    overflowX: "auto",
   },
 
   table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-    fontSize: '13px',
+    width: "100%",
+    borderCollapse: "collapse",
+    fontSize: "13px",
   },
 
   tableHeading: {
-    color: '#64748b',
-    backgroundColor: '#f8fafc',
-    borderBottom: '1px solid #e2e8f0',
-    textAlign: 'left',
-    fontSize: '10px',
-    letterSpacing: '0.4px',
+    color: "#64748b",
+    backgroundColor: "#f8fafc",
+    borderBottom: "1px solid #e2e8f0",
+    textAlign: "left",
+    fontSize: "10px",
+    letterSpacing: "0.4px",
   },
 
   tableRow: {
-    borderBottom: '1px solid #f1f5f9',
+    borderBottom: "1px solid #f1f5f9",
   },
 
   tableCell: {
-    padding: '13px 9px',
-    color: '#475569',
-    whiteSpace: 'nowrap',
+    padding: "13px 9px",
+    color: "#475569",
+    whiteSpace: "nowrap",
   },
 
   productName: {
-    display: 'block',
-    color: '#0f172a',
-    fontSize: '13px',
+    display: "block",
+    color: "#0f172a",
+    fontSize: "13px",
   },
 
   productCategory: {
-    display: 'block',
-    marginTop: '3px',
-    color: '#94a3b8',
-    fontSize: '10px',
+    display: "block",
+    marginTop: "3px",
+    color: "#94a3b8",
+    fontSize: "10px",
   },
 
   deleteButton: {
-    padding: '7px 9px',
-    border: '1px solid #fecaca',
-    borderRadius: '7px',
-    backgroundColor: '#fff1f2',
-    color: '#dc2626',
-    fontSize: '11px',
-    fontWeight: '700',
-    cursor: 'pointer',
+    padding: "7px 9px",
+    border: "1px solid #fecaca",
+    borderRadius: "7px",
+    backgroundColor: "#fff1f2",
+    color: "#dc2626",
+    fontSize: "11px",
+    fontWeight: "700",
+    cursor: "pointer",
   },
 
   cartFooter: {
-    marginTop: '22px',
-    paddingTop: '18px',
-    borderTop: '1px solid #e2e8f0',
+    marginTop: "22px",
+    paddingTop: "18px",
+    borderTop: "1px solid #e2e8f0",
   },
 
   totalRow: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: '12px',
-    marginBottom: '17px',
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "12px",
+    marginBottom: "17px",
   },
 
   totalLabel: {
-    display: 'block',
-    color: '#334155',
-    fontSize: '15px',
-    fontWeight: '800',
+    display: "block",
+    color: "#334155",
+    fontSize: "15px",
+    fontWeight: "800",
   },
 
   totalCaption: {
-    display: 'block',
-    marginTop: '4px',
-    color: '#94a3b8',
-    fontSize: '11px',
+    display: "block",
+    marginTop: "4px",
+    color: "#94a3b8",
+    fontSize: "11px",
   },
 
   totalValue: {
-    color: '#2563eb',
-    fontSize: '26px',
-    fontWeight: '800',
+    color: "#2563eb",
+    fontSize: "26px",
+    fontWeight: "800",
   },
 
   finishButton: {
-    width: '100%',
-    padding: '13px',
-    border: 'none',
-    borderRadius: '8px',
-    backgroundColor: '#2563eb',
-    color: '#ffffff',
-    fontSize: '14px',
-    fontWeight: '800',
-    cursor: 'pointer',
+    width: "100%",
+    padding: "13px",
+    border: "none",
+    borderRadius: "8px",
+    backgroundColor: "#2563eb",
+    color: "#ffffff",
+    fontSize: "14px",
+    fontWeight: "800",
+    cursor: "pointer",
   },
 
   statusBadgeClosed: {
-    border: '1px solid #fed7aa',
-    backgroundColor: '#fff7ed',
-    color: '#c2410c',
+    border: "1px solid #fed7aa",
+    backgroundColor: "#fff7ed",
+    color: "#c2410c",
   },
 
   statusDotClosed: {
-    backgroundColor: '#f97316',
+    backgroundColor: "#f97316",
   },
 
   cashCard: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: '18px',
-    marginBottom: '22px',
-    padding: '18px 20px',
-    border: '1px solid #e2e8f0',
-    borderRadius: '13px',
-    boxShadow: '0 5px 18px rgba(15,23,42,0.04)',
-    boxSizing: 'border-box',
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "18px",
+    marginBottom: "22px",
+    padding: "18px 20px",
+    border: "1px solid #e2e8f0",
+    borderRadius: "13px",
+    boxShadow: "0 5px 18px rgba(15,23,42,0.04)",
+    boxSizing: "border-box",
   },
 
   cashCardOpen: {
-    backgroundColor: '#f0fdf4',
-    borderColor: '#bbf7d0',
+    backgroundColor: "#f0fdf4",
+    borderColor: "#bbf7d0",
   },
 
   cashCardClosed: {
-    backgroundColor: '#fffaf5',
-    borderColor: '#fed7aa',
+    backgroundColor: "#fffaf5",
+    borderColor: "#fed7aa",
   },
 
   cashCardInfo: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '13px',
+    display: "flex",
+    alignItems: "center",
+    gap: "13px",
     minWidth: 0,
   },
 
   cashCardIcon: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
     flexShrink: 0,
-    width: '36px',
-    height: '36px',
-    borderRadius: '10px',
-    backgroundColor: '#ffffff',
-    color: '#16a34a',
-    fontSize: '18px',
-    fontWeight: '900',
+    width: "36px",
+    height: "36px",
+    borderRadius: "10px",
+    backgroundColor: "#ffffff",
+    color: "#16a34a",
+    fontSize: "18px",
+    fontWeight: "900",
   },
 
   cashCardLabel: {
-    display: 'block',
-    color: '#64748b',
-    fontSize: '10px',
-    fontWeight: '800',
-    letterSpacing: '0.8px',
+    display: "block",
+    color: "#64748b",
+    fontSize: "10px",
+    fontWeight: "800",
+    letterSpacing: "0.8px",
   },
 
   cashCardTitle: {
-    display: 'block',
-    marginTop: '4px',
-    color: '#172033',
-    fontSize: '16px',
+    display: "block",
+    marginTop: "4px",
+    color: "#172033",
+    fontSize: "16px",
   },
 
   cashCardCaption: {
-    display: 'block',
-    marginTop: '4px',
-    color: '#64748b',
-    fontSize: '12px',
+    display: "block",
+    marginTop: "4px",
+    color: "#64748b",
+    fontSize: "12px",
   },
 
   cashActionButton: {
     flexShrink: 0,
-    padding: '11px 16px',
-    border: 'none',
-    borderRadius: '8px',
-    color: '#ffffff',
-    fontSize: '12px',
-    fontWeight: '800',
-    cursor: 'pointer',
+    padding: "11px 16px",
+    border: "none",
+    borderRadius: "8px",
+    color: "#ffffff",
+    fontSize: "12px",
+    fontWeight: "800",
+    cursor: "pointer",
   },
 
   cashOpenButton: {
-    backgroundColor: '#ea580c',
+    backgroundColor: "#ea580c",
   },
 
   cashCloseButton: {
-    backgroundColor: '#dc2626',
+    backgroundColor: "#dc2626",
   },
 
   modalOverlay: {
-    position: 'fixed',
+    position: "fixed",
     inset: 0,
     zIndex: 1000,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '20px',
-    backgroundColor: 'rgba(15,23,42,0.48)',
-    boxSizing: 'border-box',
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "20px",
+    backgroundColor: "rgba(15,23,42,0.48)",
+    boxSizing: "border-box",
   },
 
   modalCard: {
-    width: '100%',
-    maxWidth: '430px',
-    padding: '24px',
-    border: '1px solid #e2e8f0',
-    borderRadius: '16px',
-    backgroundColor: '#ffffff',
-    boxShadow: '0 24px 70px rgba(15,23,42,0.22)',
-    boxSizing: 'border-box',
+    width: "100%",
+    maxWidth: "430px",
+    padding: "24px",
+    border: "1px solid #e2e8f0",
+    borderRadius: "16px",
+    backgroundColor: "#ffffff",
+    boxShadow: "0 24px 70px rgba(15,23,42,0.22)",
+    boxSizing: "border-box",
   },
 
   modalHeader: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: '16px',
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: "16px",
   },
 
   modalEyebrow: {
-    color: '#2563eb',
-    fontSize: '10px',
-    fontWeight: '800',
-    letterSpacing: '1.2px',
+    color: "#2563eb",
+    fontSize: "10px",
+    fontWeight: "800",
+    letterSpacing: "1.2px",
   },
 
   modalTitle: {
-    margin: '7px 0 0',
-    color: '#0f172a',
-    fontSize: '22px',
+    margin: "7px 0 0",
+    color: "#0f172a",
+    fontSize: "22px",
   },
 
   modalClose: {
-    width: '30px',
-    height: '30px',
-    border: 'none',
-    borderRadius: '8px',
-    backgroundColor: '#f1f5f9',
-    color: '#64748b',
-    fontSize: '20px',
+    width: "30px",
+    height: "30px",
+    border: "none",
+    borderRadius: "8px",
+    backgroundColor: "#f1f5f9",
+    color: "#64748b",
+    fontSize: "20px",
     lineHeight: 1,
-    cursor: 'pointer',
+    cursor: "pointer",
   },
 
   modalText: {
-    margin: '14px 0 20px',
-    color: '#64748b',
-    fontSize: '13px',
+    margin: "14px 0 20px",
+    color: "#64748b",
+    fontSize: "13px",
     lineHeight: 1.5,
   },
 
   modalActions: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    gap: '10px',
-    marginTop: '22px',
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: "10px",
+    marginTop: "22px",
   },
 
   secondaryButton: {
-    padding: '11px 15px',
-    border: '1px solid #cbd5e1',
-    borderRadius: '8px',
-    backgroundColor: '#ffffff',
-    color: '#475569',
-    fontSize: '12px',
-    fontWeight: '800',
-    cursor: 'pointer',
+    padding: "11px 15px",
+    border: "1px solid #cbd5e1",
+    borderRadius: "8px",
+    backgroundColor: "#ffffff",
+    color: "#475569",
+    fontSize: "12px",
+    fontWeight: "800",
+    cursor: "pointer",
   },
 
   primaryModalButton: {
-    padding: '11px 15px',
-    border: 'none',
-    borderRadius: '8px',
-    backgroundColor: '#2563eb',
-    color: '#ffffff',
-    fontSize: '12px',
-    fontWeight: '800',
-    cursor: 'pointer',
+    padding: "11px 15px",
+    border: "none",
+    borderRadius: "8px",
+    backgroundColor: "#2563eb",
+    color: "#ffffff",
+    fontSize: "12px",
+    fontWeight: "800",
+    cursor: "pointer",
   },
 
   closeModalButton: {
-    padding: '11px 15px',
-    border: 'none',
-    borderRadius: '8px',
-    backgroundColor: '#dc2626',
-    color: '#ffffff',
-    fontSize: '12px',
-    fontWeight: '800',
-    cursor: 'pointer',
+    padding: "11px 15px",
+    border: "none",
+    borderRadius: "8px",
+    backgroundColor: "#dc2626",
+    color: "#ffffff",
+    fontSize: "12px",
+    fontWeight: "800",
+    cursor: "pointer",
   },
 
   cashSummaryMini: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    marginBottom: '18px',
-    padding: '11px 12px',
-    borderRadius: '8px',
-    backgroundColor: '#f8fafc',
-    color: '#64748b',
-    fontSize: '12px',
+    display: "flex",
+    justifyContent: "space-between",
+    marginBottom: "18px",
+    padding: "11px 12px",
+    borderRadius: "8px",
+    backgroundColor: "#f8fafc",
+    color: "#64748b",
+    fontSize: "12px",
   },
 
   disabledButton: {
-    backgroundColor: '#94a3b8',
-    cursor: 'not-allowed',
+    backgroundColor: "#94a3b8",
+    cursor: "not-allowed",
   },
 };
 
