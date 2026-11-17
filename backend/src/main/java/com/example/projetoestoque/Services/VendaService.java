@@ -17,6 +17,7 @@ import com.example.projetoestoque.DTOVenda.VendaDTO;
 import com.example.projetoestoque.Enum.StatusCaixa;
 import com.example.projetoestoque.Enum.StatusEnum;
 import com.example.projetoestoque.Enum.TipoMovimentacao;
+import com.example.projetoestoque.Enum.TipoUsuarioEnum;
 import com.example.projetoestoque.Enum.TipoVendaEnum;
 import com.example.projetoestoque.Models.Caixa;
 import com.example.projetoestoque.Models.ItemVenda;
@@ -194,16 +195,18 @@ public class VendaService {
 
         Venda vendaExistente = vendasRepository.findById(dados.getVendaId()).orElseThrow(()-> new RuntimeException("Essa venda nao foi encontrada no banco de dados."));
 
+        if(usuario.getTipoUsuario() != TipoUsuarioEnum.ADMIN){
+            throw new RuntimeException("Somente usuarios autorizados podem cancelar vendas.");
+        }
         // Aqui vamos comecar a validacao da venda.
 
         if(vendaExistente.getCaixa() == null 
         || vendaExistente.getCaixa().getUserId() == null 
-        || vendaExistente.getCaixa().getUserId().getId()== null 
-        || !vendaExistente.getCaixa().getUserId().getId().equals(userId)){
-            throw new RuntimeException("Somente o usuario que fez a venda pode cancelar. Ou seja, seu id nao corresponde ao vendedor que concluiu a venda.");
+        || vendaExistente.getCaixa().getUserId().getId()== null) {
+            throw new RuntimeException("Usuario nao autenticado corretamente.");
         }
 
-        if(!vendaExistente.getStatusPagamento().equals(StatusEnum.PAGO)){
+        if(vendaExistente.getStatusPagamento() != StatusEnum.PAGO){
             throw new RuntimeException("Essa compra ja foi cancelada. "+vendaExistente.getId());
         }
 
@@ -212,7 +215,7 @@ public class VendaService {
         }
 
         if(!dados.getSenhaCancelamento().equals(usuario.getPassword())){
-            throw new RuntimeException("A senha do cancelamento esta incorreta. Ela precisa corresponder a senha do usuario logado: "+usuario.getName());
+            throw new RuntimeException("A senha do cancelamento esta incorreta.");
         }
 
         
@@ -233,7 +236,7 @@ public class VendaService {
                 throw new RuntimeException("Quantidade do produto nao foi definida no banco.");
             }
 
-            if(item.getQuantidade() == null || BigDecimal.ZERO.compareTo(item.getQuantidade()) <= 0){
+            if(item.getQuantidade() == null || item.getQuantidade().compareTo(BigDecimal.ZERO) <= 0){
                 throw new RuntimeException("Quantidade nao pode ser nula e deve ser superior a zero.");
 
             }
