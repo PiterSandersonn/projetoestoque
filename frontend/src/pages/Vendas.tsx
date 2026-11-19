@@ -71,8 +71,11 @@ function formatarQuantidade(
   tipoVenda: "UNIDADE" | "PESO",
 ): string {
   if (tipoVenda === "PESO") {
-    return Number(quantidade || 0).toLocaleString("pt-BR", {
-      minimumFractionDigits: 3,
+    const valor = Number(quantidade || 0);
+    const possuiFracao = !Number.isInteger(valor);
+
+    return valor.toLocaleString("pt-BR", {
+      minimumFractionDigits: possuiFracao ? 3 : 0,
       maximumFractionDigits: 3,
     });
   }
