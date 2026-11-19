@@ -66,11 +66,12 @@ const formatarDataHora = (valor?: string): string => {
 };
 
 const Dashboard: React.FC<DashboardProps> = ({ onNavegar }) => {
-  const [totalVendaDia, setTotalVendaDia] = useState<number>(0);
+  const [totalVendasPeriodo, setTotalVendasPeriodo] = useState<number>(0);
 
-  const [quantidadeVendasDia, setQuantidadeVendasDia] = useState<number>(0);
+  const [periodo, setPeriodo] = useState<"DIA" | "SEMANA" | "MES">("DIA");
 
-  const [totalVendasMes, setTotalVendasMes] = useState<number>(0);
+  const [quantidadeVendasPeriodo, setQuantidadeVendasPeriodo] =
+    useState<number>(0);
 
   const [estoqueBaixo, setEstoqueBaixo] = useState<EstoqueBaixoDTO[]>([]);
 
@@ -87,10 +88,40 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavegar }) => {
   const [carregando, setCarregando] = useState<boolean>(true);
 
   const [erro, setErro] = useState<string>("");
+  const [falhasRotas, setFalhasRotas] = useState<string[]>([]);
+  const [acessoNegado, setAcessoNegado] = useState<boolean>(false);
 
   const userId = localStorage.getItem("userId");
 
+  const nomePeriodo = {
+    DIA: "Hoje",
+    SEMANA: "Esta semana",
+    MES: "Este mês",
+  }[periodo];
+
+  const descricaoPeriodo = {
+    DIA: "hoje",
+    SEMANA: "nesta semana",
+    MES: "neste mês",
+  }[periodo];
+
   const carregarDashboard = async () => {
+    const usuarioSalvo = localStorage.getItem("usuarioLogado");
+    let tipoUsuario = "";
+
+    try {
+      const usuario = usuarioSalvo ? JSON.parse(usuarioSalvo) : null;
+      tipoUsuario = String(usuario?.tipoUsuario || "").toUpperCase();
+    } catch {
+      tipoUsuario = "";
+    }
+
+    if (tipoUsuario && tipoUsuario !== "ADMIN") {
+      setAcessoNegado(true);
+      setCarregando(false);
+      return;
+    }
+
     if (!userId) {
       setErro("Usuário não encontrado.");
       setCarregando(false);
@@ -99,43 +130,39 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavegar }) => {
 
     setCarregando(true);
     setErro("");
+    setFalhasRotas([]);
 
     const resultados = await Promise.allSettled([
-      api.get<number>(`/totalVendaDia/${userId}`),
+      api.get<number>(`/totalVendaPeriodo/${userId}/${periodo}`),
 
-      api.get<number>(`/quantidadeVendasDia/${userId}`),
-
-      api.get<number>(`/totalVendasMes/${userId}`),
+      api.get<number>(`/quantidadeVendasPeriodo/${userId}/${periodo}`),
 
       api.get<EstoqueBaixoDTO[]>(`/estoqueBaixo/${userId}`),
 
       api.get<EstoqueBaixoDTO[]>(`/produtosEstoqueVazio/${userId}`),
 
-      api.get<CategoriasMaisVendidaDTO[]>(`/categoriaMaisVendida/${userId}`),
+      api.get<CategoriasMaisVendidaDTO[]>(
+        `/categoriaMaisVendida/${userId}/${periodo}`,
+      ),
 
-      api.get<CaixaComDiferenca[]>(`/buscarDiferencas/${userId}`),
+      api.get<CaixaComDiferenca[]>(`/diferencaDeCaixa/${userId}/${periodo}`),
     ]);
 
     const [
-      resultadoTotalDia,
-      resultadoQuantidadeDia,
-      resultadoTotalMes,
+      resultadoTotalPeriodo,
+      resultadoQuantidadePeriodo,
       resultadoEstoqueBaixo,
       resultadoEstoqueZerado,
       resultadoCategorias,
       resultadoDiferencasCaixa,
     ] = resultados;
 
-    if (resultadoTotalDia.status === "fulfilled") {
-      setTotalVendaDia(Number(resultadoTotalDia.value || 0));
+    if (resultadoTotalPeriodo.status === "fulfilled") {
+      setTotalVendasPeriodo(Number(resultadoTotalPeriodo.value || 0));
     }
 
-    if (resultadoQuantidadeDia.status === "fulfilled") {
-      setQuantidadeVendasDia(Number(resultadoQuantidadeDia.value || 0));
-    }
-
-    if (resultadoTotalMes.status === "fulfilled") {
-      setTotalVendasMes(Number(resultadoTotalMes.value || 0));
+    if (resultadoQuantidadePeriodo.status === "fulfilled") {
+      setQuantidadeVendasPeriodo(Number(resultadoQuantidadePeriodo.value || 0));
     }
 
     if (resultadoEstoqueBaixo.status === "fulfilled") {
@@ -154,12 +181,44 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavegar }) => {
       setDiferencasCaixa(resultadoDiferencasCaixa.value || []);
     }
 
-    const algumaFalha = resultados.some(
-      (resultado) => resultado.status === "rejected",
+    const nomesRotas = [
+      `/totalVendaPeriodo/${userId}/${periodo}`,
+      `/quantidadeVendasPeriodo/${userId}/${periodo}`,
+      `/estoqueBaixo/${userId}`,
+      `/produtosEstoqueVazio/${userId}`,
+      `/categoriaMaisVendida/${userId}/${periodo}`,
+      `/diferencaDeCaixa/${userId}/${periodo}`,
+    ];
+
+    const falhas = resultados
+      .map((resultado, index) => {
+        if (resultado.status === "rejected") {
+          console.error(`Falha na rota ${nomesRotas[index]}`, resultado.reason);
+          return nomesRotas[index];
+        }
+        return null;
+      })
+      .filter((rota): rota is string => rota !== null);
+
+    setFalhasRotas(falhas);
+
+    const erroDePermissao = resultados.some(
+      (resultado) =>
+        resultado.status === "rejected" &&
+        String(resultado.reason?.message || resultado.reason || "")
+          .toLowerCase()
+          .includes("administr"),
     );
 
-    if (algumaFalha) {
-      setErro("Algumas informações não puderam ser carregadas.");
+    if (erroDePermissao) {
+      setAcessoNegado(true);
+      setErro("");
+    } else if (falhas.length > 0) {
+      setErro(
+        falhas.length === 1
+          ? "Uma informação não pôde ser carregada."
+          : `${falhas.length} informações não puderam ser carregadas.`,
+      );
     }
 
     setCarregando(false);
@@ -167,10 +226,104 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavegar }) => {
 
   useEffect(() => {
     carregarDashboard();
-  }, []);
+  }, [periodo]);
 
   const categoriaPrincipal =
     categoriasMaisVendidas.length > 0 ? categoriasMaisVendidas[0] : null;
+
+  if (acessoNegado) {
+    return (
+      <div style={styles.layout}>
+        <aside style={styles.sidebar}>
+          <div style={styles.logoArea}>
+            <div style={styles.logoIcon}>📦</div>
+            <div>
+              <strong style={styles.logoTitle}>Sistema de Estoque</strong>
+              <span style={styles.logoSubtitle}>Gestão comercial</span>
+            </div>
+          </div>
+
+          <nav style={styles.menu}>
+            <button
+              type="button"
+              style={styles.menuButton}
+              onClick={() => onNavegar("dashboard")}
+            >
+              <span>▦</span>
+              Dashboard
+            </button>
+            <button
+              type="button"
+              style={styles.menuButton}
+              onClick={() => onNavegar("produtos")}
+            >
+              <span>📦</span>
+              Produtos
+            </button>
+            <button
+              type="button"
+              style={styles.menuButton}
+              onClick={() => onNavegar("vendas")}
+            >
+              <span>🛒</span>
+              Caixa / Vendas
+            </button>
+            <button
+              type="button"
+              style={styles.menuButton}
+              onClick={() => onNavegar("movimentacoes")}
+            >
+              <span>↕</span>
+              Movimentações
+            </button>
+          </nav>
+
+          <div style={styles.userArea}>
+            <div style={styles.userAvatar}>U</div>
+            <div>
+              <span style={styles.userLabel}>Usuário conectado</span>
+              <strong style={styles.userId}>ID: {userId || "-"}</strong>
+            </div>
+          </div>
+        </aside>
+
+        <main style={styles.content}>
+          <header style={styles.header}>
+            <div>
+              <span style={styles.eyebrow}>CONTROLE DE ACESSO</span>
+              <h1 style={styles.title}>Acesso restrito</h1>
+              <p style={styles.subtitle}>
+                Esta área faz parte do controle administrativo do sistema.
+              </p>
+            </div>
+          </header>
+
+          <section style={styles.accessCard}>
+            <div style={styles.accessIcon}>🔒</div>
+            <div style={styles.accessContent}>
+              <span style={styles.accessEyebrow}>PERMISSÃO NECESSÁRIA</span>
+              <h2 style={styles.accessTitle}>
+                Você não tem permissão para acessar esta tela
+              </h2>
+              <p style={styles.accessText}>
+                O Dashboard contém informações estratégicas e está disponível
+                somente para usuários com perfil de administrador.
+              </p>
+              <div style={styles.accessActions}>
+                <button
+                  type="button"
+                  style={styles.accessPrimaryButton}
+                  onClick={() => onNavegar("vendas")}
+                >
+                  Ir para o caixa
+                </button>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div style={styles.layout}>
@@ -249,19 +402,52 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavegar }) => {
             </p>
           </div>
 
-          <button
-            type="button"
-            style={styles.refreshButton}
-            onClick={carregarDashboard}
-            disabled={carregando}
-          >
-            ↻ {carregando ? "Atualizando..." : "Atualizar"}
-          </button>
+          <div style={styles.headerActions}>
+            <div style={styles.periodFilters} aria-label="Período do dashboard">
+              {(["DIA", "SEMANA", "MES"] as const).map((opcao) => (
+                <button
+                  key={opcao}
+                  type="button"
+                  style={{
+                    ...styles.periodButton,
+                    ...(periodo === opcao ? styles.periodButtonActive : {}),
+                  }}
+                  onClick={() => setPeriodo(opcao)}
+                  disabled={carregando && periodo === opcao}
+                >
+                  {opcao === "DIA"
+                    ? "Hoje"
+                    : opcao === "SEMANA"
+                      ? "Esta semana"
+                      : "Este mês"}
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              style={styles.refreshButton}
+              onClick={carregarDashboard}
+              disabled={carregando}
+            >
+              ↻ {carregando ? "Atualizando..." : "Atualizar"}
+            </button>
+          </div>
         </header>
 
         {erro && (
           <div style={styles.warning}>
             <strong>Atenção:</strong> {erro}
+            {falhasRotas.length > 0 && (
+              <div style={styles.failedRoutes}>
+                <strong>Rota(s) com erro:</strong>
+                {falhasRotas.map((rota) => (
+                  <code key={rota} style={styles.failedRoute}>
+                    {rota}
+                  </code>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -280,17 +466,24 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavegar }) => {
                 }}
               >
                 <div style={styles.cardTop}>
-                  <span style={styles.cardLabel}>VENDAS DE HOJE</span>
+                  <span style={styles.cardLabel}>
+                    VENDAS{" "}
+                    {periodo === "DIA"
+                      ? "DE HOJE"
+                      : periodo === "SEMANA"
+                        ? "DA SEMANA"
+                        : "DO MÊS"}
+                  </span>
 
                   <span style={styles.cardIcon}>$</span>
                 </div>
 
                 <strong style={styles.cardValue}>
-                  {formatarMoeda(totalVendaDia)}
+                  {formatarMoeda(totalVendasPeriodo)}
                 </strong>
 
                 <span style={styles.cardDescription}>
-                  Total recebido em vendas pagas
+                  Total recebido no período
                 </span>
               </div>
 
@@ -301,17 +494,24 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavegar }) => {
                 }}
               >
                 <div style={styles.cardTop}>
-                  <span style={styles.cardLabel}>VENDAS DO MÊS</span>
+                  <span style={styles.cardLabel}>
+                    FATURAMENTO{" "}
+                    {periodo === "DIA"
+                      ? "DIÁRIO"
+                      : periodo === "SEMANA"
+                        ? "SEMANAL"
+                        : "MENSAL"}
+                  </span>
 
                   <span style={styles.cardIcon}>◉</span>
                 </div>
 
                 <strong style={styles.cardValue}>
-                  {formatarMoeda(totalVendasMes)}
+                  {formatarMoeda(totalVendasPeriodo)}
                 </strong>
 
                 <span style={styles.cardDescription}>
-                  Faturamento do mês atual
+                  Faturamento do período selecionado
                 </span>
               </div>
 
@@ -327,10 +527,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavegar }) => {
                   <span style={styles.cardIcon}>#</span>
                 </div>
 
-                <strong style={styles.cardValue}>{quantidadeVendasDia}</strong>
+                <strong style={styles.cardValue}>
+                  {quantidadeVendasPeriodo}
+                </strong>
 
                 <span style={styles.cardDescription}>
-                  Vendas concluídas hoje
+                  Vendas concluídas no período
                 </span>
               </div>
 
@@ -527,10 +729,11 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavegar }) => {
             <section style={styles.panel}>
               <div style={styles.panelHeader}>
                 <div>
-                  <h2 style={styles.panelTitle}>Diferenças de caixa no mês</h2>
+                  <h2 style={styles.panelTitle}>Diferenças de caixa</h2>
 
                   <p style={styles.panelSubtitle}>
-                    Acompanhe sobras e faltas identificadas nos fechamentos
+                    Acompanhe sobras e faltas identificadas nos fechamentos{" "}
+                    {descricaoPeriodo}
                   </p>
                 </div>
 
@@ -549,7 +752,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavegar }) => {
               {diferencasCaixa.length === 0 ? (
                 <div style={styles.emptyState}>
                   <span style={styles.emptyIcon}>✓</span>
-                  <p>Nenhuma diferença de caixa neste mês.</p>
+                  <p>Nenhuma diferença de caixa no período selecionado.</p>
                 </div>
               ) : (
                 <div style={styles.differenceList}>
@@ -766,6 +969,40 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "14px",
   },
 
+  headerActions: {
+    display: "flex",
+    alignItems: "center",
+    flexWrap: "wrap",
+    justifyContent: "flex-end",
+    gap: "12px",
+  },
+
+  periodFilters: {
+    display: "flex",
+    alignItems: "center",
+    gap: "4px",
+    padding: "4px",
+    border: "1px solid #dbe3ef",
+    borderRadius: "9px",
+    backgroundColor: "#ffffff",
+  },
+
+  periodButton: {
+    padding: "8px 11px",
+    border: "none",
+    borderRadius: "6px",
+    backgroundColor: "transparent",
+    color: "#64748b",
+    fontSize: "11px",
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+
+  periodButtonActive: {
+    backgroundColor: "#eaf2ff",
+    color: "#1d4ed8",
+  },
+
   refreshButton: {
     padding: "11px 17px",
     border: "1px solid #dbe3ef",
@@ -785,6 +1022,22 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: "#fff7ed",
     color: "#9a3412",
     fontSize: "13px",
+  },
+
+  failedRoutes: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "5px",
+    marginTop: "8px",
+  },
+
+  failedRoute: {
+    width: "fit-content",
+    padding: "3px 6px",
+    borderRadius: "4px",
+    backgroundColor: "#ffedd5",
+    color: "#9a3412",
+    fontSize: "11px",
   },
 
   loadingCard: {
@@ -1144,6 +1397,78 @@ const styles: Record<string, React.CSSProperties> = {
 
   differenceZero: {
     color: "#2563eb",
+  },
+
+  accessCard: {
+    display: "flex",
+    alignItems: "center",
+    gap: "28px",
+    maxWidth: "820px",
+    margin: "42px auto 0",
+    padding: "42px",
+    border: "1px solid #dbe5f3",
+    borderRadius: "20px",
+    background: "linear-gradient(135deg, #ffffff 0%, #f8fbff 100%)",
+    boxShadow: "0 18px 45px rgba(15,23,42,0.08)",
+  },
+
+  accessIcon: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "92px",
+    height: "92px",
+    flexShrink: 0,
+    borderRadius: "24px",
+    background: "linear-gradient(135deg, #dbeafe, #eff6ff)",
+    color: "#2563eb",
+    fontSize: "40px",
+    boxShadow: "inset 0 0 0 1px #bfdbfe",
+  },
+
+  accessContent: {
+    maxWidth: "590px",
+  },
+
+  accessEyebrow: {
+    color: "#2563eb",
+    fontSize: "10px",
+    fontWeight: 800,
+    letterSpacing: "1.4px",
+  },
+
+  accessTitle: {
+    margin: "9px 0 10px",
+    color: "#0f172a",
+    fontSize: "25px",
+    lineHeight: 1.2,
+    letterSpacing: "-0.5px",
+  },
+
+  accessText: {
+    margin: 0,
+    color: "#64748b",
+    fontSize: "14px",
+    lineHeight: 1.6,
+  },
+
+  accessActions: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "10px",
+    marginTop: "24px",
+  },
+
+  accessPrimaryButton: {
+    padding: "11px 17px",
+    border: "none",
+    borderRadius: "9px",
+    backgroundColor: "#2563eb",
+    color: "#ffffff",
+    fontSize: "13px",
+    fontWeight: 700,
+    cursor: "pointer",
+    boxShadow: "0 8px 18px rgba(37,99,235,0.22)",
   },
 
   emptyState: {
