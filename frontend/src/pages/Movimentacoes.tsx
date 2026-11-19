@@ -7,6 +7,7 @@ interface Movimentacao {
     id?: number;
     nome?: string;
     name_produtos?: string;
+    tipoVenda?: 'UNIDADE' | 'PESO';
   };
   produtoNome?: string;
   nomeProduto?: string;
@@ -17,6 +18,7 @@ interface Movimentacao {
   estoqueAnterior?: number;
   estoquePosterior?: number;
   dataHora?: string;
+  tipoVenda?: 'UNIDADE' | 'PESO';
 }
 
 interface MovimentacoesProps {
@@ -90,6 +92,26 @@ function formatarData(data?: string): string {
   });
 }
 
+function obterTipoVenda(item: Movimentacao): 'UNIDADE' | 'PESO' {
+  return item.produto?.tipoVenda || item.tipoVenda || 'UNIDADE';
+}
+
+function formatarQuantidade(valor: number | undefined, tipoVenda: 'UNIDADE' | 'PESO'): string {
+  if (valor === undefined || valor === null) return '—';
+
+  return Number(valor).toLocaleString('pt-BR', {
+    minimumFractionDigits: tipoVenda === 'PESO' ? 3 : 0,
+    maximumFractionDigits: tipoVenda === 'PESO' ? 3 : 0,
+  });
+}
+
+function formatarQuantidadeComUnidade(
+  valor: number | undefined,
+  tipoVenda: 'UNIDADE' | 'PESO',
+): string {
+  return `${formatarQuantidade(valor, tipoVenda)} ${tipoVenda === 'PESO' ? 'kg' : 'un'}`;
+}
+
 export function Movimentacoes({
   onNavegar,
 }: MovimentacoesProps) {
@@ -99,6 +121,7 @@ export function Movimentacoes({
   const [busca, setBusca] = useState('');
   const [filtroTipo, setFiltroTipo] = useState('TODOS');
   const [carregando, setCarregando] = useState(true);
+  const [acessoNegado, setAcessoNegado] = useState(false);
   const [mensagem, setMensagem] = useState<{
     texto: string;
     erro: boolean;
@@ -133,6 +156,22 @@ export function Movimentacoes({
   };
 
   useEffect(() => {
+    const usuarioSalvo = localStorage.getItem('usuarioLogado');
+    let tipoUsuario = '';
+
+    try {
+      const usuario = usuarioSalvo ? JSON.parse(usuarioSalvo) : null;
+      tipoUsuario = String(usuario?.tipoUsuario || '').toUpperCase();
+    } catch {
+      tipoUsuario = '';
+    }
+
+    if (tipoUsuario && tipoUsuario !== 'ADMIN') {
+      setAcessoNegado(true);
+      setCarregando(false);
+      return;
+    }
+
     if (!userId) {
       localStorage.clear();
       window.location.reload();
@@ -185,6 +224,83 @@ export function Movimentacoes({
   };
 
   if (!userId) return null;
+
+  if (acessoNegado) {
+    return (
+      <div style={styles.page}>
+        <aside style={styles.sidebar}>
+          <div>
+            <div style={styles.brand}>
+              <div style={styles.logoIcon}>📦</div>
+              <div>
+                <strong style={styles.brandTitle}>Sistema de Estoque</strong>
+                <span style={styles.brandSubtitle}>Gestão comercial</span>
+              </div>
+            </div>
+
+            <nav style={styles.navigation}>
+              <button type="button" onClick={() => onNavegar?.('dashboard')} style={styles.navButton}>
+                <span>▦</span> Dashboard
+              </button>
+              <button type="button" onClick={() => onNavegar?.('produtos')} style={styles.navButton}>
+                <span>📦</span> Produtos
+              </button>
+              <button type="button" onClick={() => onNavegar?.('vendas')} style={styles.navButton}>
+                <span>🛒</span> Caixa / Vendas
+              </button>
+              <button type="button" onClick={() => onNavegar?.('movimentacoes')} style={styles.navButton}>
+                <span>↕</span> Movimentações
+              </button>
+            </nav>
+          </div>
+
+          <div style={styles.sidebarUser}>
+            <div style={styles.avatar}>U</div>
+            <div>
+              <strong style={styles.userName}>Usuário conectado</strong>
+              <span style={styles.userRole}>ID {userId}</span>
+            </div>
+          </div>
+        </aside>
+
+        <div style={styles.mainArea}>
+          <header style={styles.header}>
+            <div>
+              <span style={styles.headerEyebrow}>CONTROLE DE ACESSO</span>
+              <strong style={styles.headerTitle}>Área administrativa</strong>
+            </div>
+            <button type="button" onClick={handleLogout} style={styles.logoutButton}>Sair</button>
+          </header>
+
+          <main style={styles.content}>
+            <div style={styles.pageHeading}>
+              <div>
+                <span style={styles.eyebrow}>PERMISSÃO NECESSÁRIA</span>
+                <h1 style={styles.title}>Acesso restrito</h1>
+                <p style={styles.subtitle}>Esta área faz parte do controle administrativo do sistema.</p>
+              </div>
+            </div>
+
+            <section style={styles.accessCard}>
+              <div style={styles.accessIcon}>🔒</div>
+              <div style={styles.accessContent}>
+                <span style={styles.accessEyebrow}>ACESSO ADMINISTRATIVO</span>
+                <h2 style={styles.accessTitle}>Você não tem permissão para acessar esta tela</h2>
+                <p style={styles.accessText}>
+                  O histórico de movimentações está disponível somente para usuários com perfil de administrador.
+                </p>
+                <div style={styles.accessActions}>
+                  <button type="button" style={styles.accessPrimaryButton} onClick={() => onNavegar?.('vendas')}>
+                    Ir para o caixa
+                  </button>
+                </div>
+              </div>
+            </section>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={styles.page}>
@@ -448,15 +564,24 @@ export function Movimentacoes({
                               color: '#334155',
                             }}
                           >
-                            {item.quantidade ?? '—'} un
+                            {formatarQuantidadeComUnidade(
+                              item.quantidade,
+                              obterTipoVenda(item),
+                            )}
                           </td>
 
                           <td style={styles.tableCell}>
                             <span style={styles.stockChange}>
-                              {item.estoqueAnterior ?? '—'}
+                              {formatarQuantidade(
+                                item.estoqueAnterior,
+                                obterTipoVenda(item),
+                              )}
                               <span style={styles.arrow}>→</span>
                               <strong>
-                                {item.estoquePosterior ?? '—'}
+                                {formatarQuantidade(
+                                  item.estoquePosterior,
+                                  obterTipoVenda(item),
+                                )}
                               </strong>
                             </span>
                           </td>
@@ -943,6 +1068,71 @@ const styles: Record<string, React.CSSProperties> = {
 
   arrow: {
     color: '#94a3b8',
+  },
+
+  accessCard: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '28px',
+    maxWidth: '820px',
+    margin: '42px auto 0',
+    padding: '42px',
+    border: '1px solid #dbe5f3',
+    borderRadius: '20px',
+    background: 'linear-gradient(135deg, #ffffff 0%, #f8fbff 100%)',
+    boxShadow: '0 18px 45px rgba(15,23,42,0.08)',
+    boxSizing: 'border-box',
+  },
+  accessIcon: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '92px',
+    height: '92px',
+    flexShrink: 0,
+    borderRadius: '24px',
+    background: 'linear-gradient(135deg, #dbeafe, #eff6ff)',
+    color: '#2563eb',
+    fontSize: '40px',
+    boxShadow: 'inset 0 0 0 1px #bfdbfe',
+  },
+  accessContent: {
+    maxWidth: '590px',
+  },
+  accessEyebrow: {
+    color: '#2563eb',
+    fontSize: '10px',
+    fontWeight: '800',
+    letterSpacing: '1.4px',
+  },
+  accessTitle: {
+    margin: '9px 0 10px',
+    color: '#0f172a',
+    fontSize: '25px',
+    lineHeight: 1.2,
+    letterSpacing: '-0.5px',
+  },
+  accessText: {
+    margin: 0,
+    color: '#64748b',
+    fontSize: '14px',
+    lineHeight: 1.6,
+  },
+  accessActions: {
+    display: 'flex',
+    gap: '10px',
+    marginTop: '24px',
+  },
+  accessPrimaryButton: {
+    padding: '11px 17px',
+    border: 'none',
+    borderRadius: '9px',
+    backgroundColor: '#2563eb',
+    color: '#ffffff',
+    fontSize: '13px',
+    fontWeight: '700',
+    cursor: 'pointer',
+    boxShadow: '0 8px 18px rgba(37,99,235,0.22)',
   },
 
   emptyState: {
