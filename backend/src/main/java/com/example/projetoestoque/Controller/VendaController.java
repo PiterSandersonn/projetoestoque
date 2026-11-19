@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.example.projetoestoque.DTOVenda.DadosDTO;
 import com.example.projetoestoque.Models.Venda;
 import com.example.projetoestoque.Services.VendaService;
+import com.example.projetoestoque.DTOVenda.CancelarVendaDTO;
 
 import jakarta.validation.Valid;
 
@@ -32,6 +33,15 @@ public class VendaController {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
-    
+
+    @PostMapping("cancelarVenda/")
+    public ResponseEntity<?> cancelarVenda(@RequestBody CancelarVendaDTO dados){
+        try {
+            Venda vendaCancelada = this.vendaService.cancelarVenda(dados);
+            return ResponseEntity.ok().body(vendaCancelada);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body("Ocorreu um erro: "+e.getMessage());
+        }
+    }
     
 }

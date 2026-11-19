@@ -8,9 +8,7 @@ public class CancelarVendaDTO {
 
 
     public CancelarVendaDTO(){}
-
-
-
+    
 
     public Long getUserId() {
         return userId;

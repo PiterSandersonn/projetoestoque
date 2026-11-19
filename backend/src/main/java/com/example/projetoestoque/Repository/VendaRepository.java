@@ -31,27 +31,7 @@ public interface VendaRepository extends JpaRepository<Venda, Long> {
             @Param("status") StatusEnum status
     );
 
-    /*
-     * Busca vendas de uma data específica,
-     * filtradas pelo usuário e pelo status.
-     */
-    List<Venda> findByDataVendaAndCaixaUserIdIdAndStatusPagamento(
-            LocalDate dataVenda,
-            Long userId,
-            StatusEnum statusPagamento
-    );
-
-    /*
-     * Busca vendas de uma data específica,
-     * filtradas por forma de pagamento e status.
-     */
-    List<Venda> findByDataVendaAndCaixaUserIdIdAndPagamentoAndStatusPagamento(
-            LocalDate dataVenda,
-            Long userId,
-            FormaPagamentoEnum pagamento,
-            StatusEnum statusPagamento
-    );
-
+    
     /*
      * Busca vendas de um período,
      * filtradas pelo usuário e pelo status.

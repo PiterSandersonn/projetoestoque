@@ -1,9 +1,7 @@
 package com.example.projetoestoque.Controller;
 
 import java.math.BigDecimal;
-import java.util.List;
 
-import org.apache.catalina.connector.Response;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -60,14 +58,4 @@ public class CaixaController {
         }
     }
 
-    @GetMapping("/buscarDiferencas/{userId}")
-    public ResponseEntity<?> buscarDiferenca(@PathVariable ("userId") Long userId){
-        try {
-            List<Caixa> caixasComDiferencas = this.caixaService.diferencaDosCaixas(userId); 
-            return ResponseEntity.ok().body(caixasComDiferencas);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body("ocorreu um erro: "+e.getMessage());
-        }
-    }
-    
 }

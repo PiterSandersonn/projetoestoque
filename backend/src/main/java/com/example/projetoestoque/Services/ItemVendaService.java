@@ -56,7 +56,5 @@ public class ItemVendaService {
         }
     }
 
-
-    //ediatar quantidade, por enquanto pode ser sem senha, mas mais pra frente somente com senha do user_sudo.
     
 }

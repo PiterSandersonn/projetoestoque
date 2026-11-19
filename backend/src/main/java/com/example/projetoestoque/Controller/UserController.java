@@ -50,9 +50,9 @@ public class UserController {
     }
     //Update
     @PutMapping("/updateUser/{id}")
-    public ResponseEntity<?> updateUser(@PathVariable("id") Long userId,@Valid @RequestBody UserDTOseguro dto){
+    public ResponseEntity<?> updateUser(@PathVariable("id") Long userId,@Valid @RequestBody UserDTOseguro dto, @RequestBody String newPassword){
         try {
-            this.userService.updateUser(userId, dto.getPassword());// aqui ja fazemos as verificacoes intrenamente.
+            this.userService.updateUser(userId, dto.getPassword(), newPassword);// aqui ja fazemos as verificacoes intrenamente.
             return ResponseEntity.ok().body("Senha alterada com sucesso!");
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body("Ocorreu um erro: "+e.getMessage());// aqui é not found caso o user nao existir. Estamos fazendo essa verificacao de existencia dentro do metodo "updateUser".

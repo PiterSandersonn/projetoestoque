@@ -1,6 +1,8 @@
 package com.example.projetoestoque.Services;
 
 import java.math.BigDecimal;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -8,9 +10,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.example.projetoestoque.DTOVenda.CaixaFecharDTO;
+import com.example.projetoestoque.Enum.EnumPeriodo;
 import com.example.projetoestoque.Enum.FormaPagamentoEnum;
 import com.example.projetoestoque.Enum.StatusCaixa;
 import com.example.projetoestoque.Enum.StatusEnum;
+import com.example.projetoestoque.Enum.TipoUsuarioEnum;
 import com.example.projetoestoque.Models.Caixa;
 import com.example.projetoestoque.Models.User;
 import com.example.projetoestoque.Repository.CaixaRepository;
@@ -100,15 +104,35 @@ public class CaixaService {
             
         }
     
-    public List<Caixa> diferencaDosCaixas(Long userId){
+    public List<Caixa> diferencaDosCaixas(Long userId, EnumPeriodo periodo){
         if(userId == null){
             throw new ExceptionUserId();
         }
+
+        User newUser = this.userService.findBy(userId);// aqui ja vamos retornar erro tambem.
+
+        if(newUser.getTipoUsuario() != TipoUsuarioEnum.ADMIN){
+            throw new RuntimeException("Somente administrados podem atualizar produtos.");
+        }
+
         this.userService.findBy(userId);
 
-        LocalDateTime dataInicial = LocalDateTime.now().withDayOfMonth(1);
+        LocalDate dataEscolhida;
+        switch (periodo) {
+            case DIA:
+                dataEscolhida = LocalDate.now();
+                break;
+            case SEMANA:
+                dataEscolhida = LocalDate.now().with(DayOfWeek.MONDAY);
+                break;
+            case MES:
+                dataEscolhida = LocalDate.now().withDayOfMonth(1);
+                break;
+            default:
+                throw new RuntimeException("Ocorreu um erro ao receber o periodo.");
+        }
 
-        return this.caixaRepository.buscarDiferencasDoPeriodo(userId, dataInicial, LocalDateTime.now());
+        return this.caixaRepository.buscarDiferencasDoPeriodo(userId, dataEscolhida.atStartOfDay(), LocalDateTime.now().plusDays(1));
         
     }    
 }

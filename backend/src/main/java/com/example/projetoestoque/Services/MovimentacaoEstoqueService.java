@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.example.projetoestoque.Enum.TipoMovimentacao;
+import com.example.projetoestoque.Enum.TipoUsuarioEnum;
 import com.example.projetoestoque.Models.MovimentacaoEstoque;
 import com.example.projetoestoque.Models.Produto;
 import com.example.projetoestoque.Models.User;
@@ -37,7 +38,11 @@ public class MovimentacaoEstoqueService {
             throw new RuntimeException("Id do usuario nao pode ser nulo.");
         }
 
-        User usuario = this.userService.findBy(userId);
+        User usuario = this.userService.findBy(userId);// aqui ja vamos retornar erro do service tambem.
+
+        if(usuario.getTipoUsuario() != TipoUsuarioEnum.ADMIN){
+            throw new RuntimeException("Somente administrados podem atualizar produtos.");
+        }
 
         if(produtos == null|| produtos.isEmpty()){
             throw new RuntimeException("A lista de produtos nao pode ser vazia.");  
@@ -52,7 +57,7 @@ public class MovimentacaoEstoqueService {
                 throw new RuntimeException("Nome do produto nao pode ser nulo nem vazio."+produto.getNome());
             }
 
-            if(produto.getQuantidade() == null|| BigDecimal.ZERO.compareTo(produto.getQuantidade()) > 0){
+            if(produto.getQuantidade() == null|| produto.getQuantidade().compareTo(BigDecimal.ZERO) < 0){
                 throw new RuntimeException("Quantidade nao pode ser nula nem inferior a zero."+produto.getNome());
             }
 
@@ -64,21 +69,8 @@ public class MovimentacaoEstoqueService {
                 throw new RuntimeException("Valor do produto nao pode ser nulo, nem inferior a zero"+produto.getNome());
             }
 
-            Produto item = this.produtoService.createProduto(produto, usuario.getId());
-            
-            MovimentacaoEstoque novaMovimentacao = new MovimentacaoEstoque();
-
-            novaMovimentacao.setProduto(item);
-
-
-            novaMovimentacao.setEstoqueAnterior(BigDecimal.ZERO);
-            novaMovimentacao.setEstoquePosterior(item.getQuantidade());
-            novaMovimentacao.setUsuario(usuario);
-            novaMovimentacao.setMovimentacao(TipoMovimentacao.CADASTRO);
-            novaMovimentacao.setDataHora(LocalDateTime.now());
-            this.produtoRepository.save(item);
-            this.movimentacaoRepository.save(novaMovimentacao);
-        }
+            this.produtoService.createProduto(produto, usuario.getId());
+    }
     }
 
     public void movimentacaoEstoqueEntrada(Long userId, List<Produto> produtos){
@@ -86,7 +78,11 @@ public class MovimentacaoEstoqueService {
             throw new RuntimeException("Id do usuario nao pode ser nulo.");
         }
 
-        User usuario = this.userService.findBy(userId);
+        User usuario = this.userService.findBy(userId);// aqui ja vamos retornar erro do service tambem.
+
+        if(usuario.getTipoUsuario() != TipoUsuarioEnum.ADMIN){
+            throw new RuntimeException("Somente administrados podem atualizar produtos.");
+        }
 
         if(produtos == null|| produtos.isEmpty()){
             throw new RuntimeException("A lista de produtos nao pode ser nula.");  
@@ -126,7 +122,11 @@ public class MovimentacaoEstoqueService {
             throw new RuntimeException("Id do usuario nao pode ser nulo.");
         }
 
-        User usuario = this.userService.findBy(userId);
+        User usuario = this.userService.findBy(userId);// aqui ja vamos retornar erro do service tambem.
+
+        if(usuario.getTipoUsuario() != TipoUsuarioEnum.ADMIN){
+            throw new RuntimeException("Somente administrados podem atualizar produtos.");
+        }
 
         if(produtos == null|| produtos.isEmpty()){
             throw new RuntimeException("A lista de produtos nao pode ser nula.");  
@@ -167,7 +167,13 @@ public class MovimentacaoEstoqueService {
         if(userId == null){
             throw new RuntimeException("Id do usuario nao pode ser nulo.");
         }
-        User usuario = this.userService.findBy(userId);
+
+
+        User usuario = this.userService.findBy(userId);// aqui ja vamos retornar erro do service tambem.
+
+        if(usuario.getTipoUsuario() != TipoUsuarioEnum.ADMIN){
+            throw new RuntimeException("Somente administrados podem atualizar produtos.");
+        }
 
         if(produtos == null|| produtos.isEmpty()){
             throw new RuntimeException("A lista de produtos nao pode ser nula.");  
@@ -205,7 +211,12 @@ public class MovimentacaoEstoqueService {
         if(userId == null){
             throw new RuntimeException("Id do usuario nao pode ser nulo.");
         }
-        User usuario = this.userService.findBy(userId);
+
+        User usuario = this.userService.findBy(userId);// aqui ja vamos retornar erro do service tambem.
+
+        if(usuario.getTipoUsuario() != TipoUsuarioEnum.ADMIN){
+            throw new RuntimeException("Somente administrados podem atualizar produtos.");
+        }
 
         if(produtos == null|| produtos.isEmpty()){
             throw new RuntimeException("A lista de produtos nao pode ser nula.");  
@@ -246,7 +257,12 @@ public class MovimentacaoEstoqueService {
         if(userId == null){
             throw new RuntimeException("Id do usuario nao pode ser nulo.");
         }
-        User usuario = this.userService.findBy(userId);
+
+        User usuario = this.userService.findBy(userId);// aqui ja vamos retornar erro do service tambem.
+
+        if(usuario.getTipoUsuario() != TipoUsuarioEnum.ADMIN){
+            throw new RuntimeException("Somente administrados podem atualizar produtos.");
+        }
 
         if(produtos == null || produtos.isEmpty()){
             throw new RuntimeException("A lista de produtos nao pode ser nula.");  
@@ -283,7 +299,12 @@ public class MovimentacaoEstoqueService {
             throw new RuntimeException("Id do usuario nao pode ser nulo.");
         }
 
-        this.userService.findBy(userId); // Aqui ja vai retornar um erro caso user nao exista. 
+        User usuario = this.userService.findBy(userId);// aqui ja vamos retornar erro do service tambem.
+
+        if(usuario.getTipoUsuario() != TipoUsuarioEnum.ADMIN){
+            throw new RuntimeException("Somente administrados podem atualizar produtos.");
+        } 
+        
 
         return this.movimentacaoRepository.findByUsuarioIdOrderByDataHoraDesc(userId);
 

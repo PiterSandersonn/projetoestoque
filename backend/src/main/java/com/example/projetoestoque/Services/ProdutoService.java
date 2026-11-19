@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.example.projetoestoque.Enum.TipoMovimentacao;
+import com.example.projetoestoque.Enum.TipoUsuarioEnum;
 import com.example.projetoestoque.Enum.TipoVendaEnum;
 import com.example.projetoestoque.ExceptionUserIdError.ExceptionUserId;
 import com.example.projetoestoque.Models.MovimentacaoEstoque;
@@ -39,6 +40,9 @@ public class ProdutoService {
         }
 
         User newUser = this.userService.findBy(userId); // aqui ja vamos estar retornando um erro caso o user nao exista.
+        if(newUser.getTipoUsuario() != TipoUsuarioEnum.ADMIN){
+            throw new RuntimeException("Somente administrados podem cadastrar produtos.");
+        }
 
         if(produto == null){
             throw new RuntimeException("Produto nao pode ser nulo.");
@@ -59,7 +63,7 @@ public class ProdutoService {
             //Ai temos que fazer a validacao depois(inferio ou igual a zero.)
             throw new RuntimeException("Valor nao pode ser menor ou igual a zero");
         }
-        if(produto.getQuantidade().compareTo(BigDecimal.ZERO) <= 0 ){
+        if(produto.getQuantidade().compareTo(BigDecimal.ZERO) < 0 ){
             throw new RuntimeException("Quantiade nao pode ser negativa.");
         }
         if(produto.getTipoVenda() == TipoVendaEnum.PESO && produto.getCodigo() == null){
@@ -93,7 +97,7 @@ public class ProdutoService {
         movimentacao.setEstoquePosterior(newproduct.getQuantidade());
         movimentacao.setProduto(newproduct);
         movimentacao.setUsuario(newUser);
-        movimentacao.setMovimentacao(TipoMovimentacao.ENTRADA);
+        movimentacao.setMovimentacao(TipoMovimentacao.CADASTRO);
         movimentacao.setQuantidade(newproduct.getQuantidade());
         this.movimentacaoRepository.save(movimentacao);
 
@@ -110,10 +114,13 @@ public class ProdutoService {
     }
     //return List<Produto>
     public List<Produto> returnListaProdutos(Long userId, String busca){
+
         if(userId == null){
             throw new ExceptionUserId();
         }
-        User newUser = this.userService.findBy(userId); // aqui ja retornamos um erro internamente desse metodo do userService.
+
+        User newUser = this.userService.findBy(userId);
+
         if(busca != null && !busca.trim().isEmpty()){
             List<Produto> produtos = this.produtoRepository.buscarPorNomeOuCategoria(userId, busca);
             return produtos;
@@ -131,6 +138,11 @@ public class ProdutoService {
         }
 
         User newUser = this.userService.findBy(userId);// aqui ja vamos retornar erro tambem.
+
+        if(newUser.getTipoUsuario() != TipoUsuarioEnum.ADMIN){
+            throw new RuntimeException("Somente administrados podem atualizar produtos.");
+        }
+
 
         if(produto == null){
             throw new RuntimeException("Produto nao pode ser nulo.");
@@ -213,7 +225,11 @@ public class ProdutoService {
         if(userId == null){
             throw new ExceptionUserId();
         }
-        User newUser = this.userService.findBy(userId);   
+        User newUser = this.userService.findBy(userId);  
+
+        if(newUser.getTipoUsuario() != TipoUsuarioEnum.ADMIN){
+            throw new RuntimeException("Somente administrados podem deletar produtos.");
+        } 
 
         if(id == null){
             throw new RuntimeException("Id do produto nao pode ser nulo.");

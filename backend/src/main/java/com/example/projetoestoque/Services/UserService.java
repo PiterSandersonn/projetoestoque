@@ -1,12 +1,14 @@
 package com.example.projetoestoque.Services;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.example.projetoestoque.DTOVenda.LoginDTO;
 import com.example.projetoestoque.Enum.TipoUsuarioEnum;
 import com.example.projetoestoque.Models.User;
 import com.example.projetoestoque.Repository.UserRepository;
+
 
 import jakarta.transaction.Transactional;
 
@@ -15,6 +17,9 @@ public class UserService {
 
     @Autowired 
     private UserRepository userRepository;
+    
+    @Autowired 
+    private PasswordEncoder passwordEncoder;
 
 
     //return: uam dica legal é a gente fazer o return antes do create. Pq quando formos fazer o cerate, podemos usar o return para validar se o usuario exeiste ou nao.
@@ -52,28 +57,34 @@ public class UserService {
         if (this.userRepository.boolByUserName(usuario.getUserName())){
             throw new RuntimeException("Usuario existente! Tente outro.");
         }
-       
-
         
 
         usuario.setId(null);
 
         usuario.setTipoUsuario(TipoUsuarioEnum.FUNCIONARIO);
 
+        String senhainformada = usuario.getPassword();
+        usuario.setPassword(passwordEncoder.encode(senhainformada));
+
         this.userRepository.save(usuario); 
     }
     
     //update
     @Transactional 
-    public void updateUser(Long id, String password){
+    public void updateUser(Long id, String password, String newPassword){
         User newUser = findBy(id); // Aqui ja retornamos um erro internamente.
         if(password == null || password.isBlank()){
             throw new RuntimeException("Senha nao pode ser nula.");
         }
-        if(!password.equals(newUser.getPassword())){
+        if (newPassword == null || newPassword.isBlank()) {
+            throw new RuntimeException("Nova senha nao pode ser nula.");
+        }
+
+        if(!passwordEncoder.matches(password, newUser.getPassword())){
             throw new RuntimeException("A senha esta incorreta!");
         }
-        newUser.setPassword(password);
+        newUser.setPassword(passwordEncoder.encode(newPassword));
+        
         this.userRepository.save(newUser);
     }
   
@@ -82,9 +93,9 @@ public class UserService {
     public void deleteUser(Long id, String password){
         User newUser = this.findBy(id); // aqui tambem aj vamos retornar um erro internamente.
         if(password == null || password.isBlank()){
-            throw new RuntimeException("Senha nao pode sre nula!");
+            throw new RuntimeException("Senha nao pode ser nula!");
         }
-        if(!newUser.getPassword().equals(password)){
+        if(!passwordEncoder.matches(password, newUser.getPassword())){
             throw new RuntimeException("A senha esta incorreta!");
         }
         this.userRepository.delete(newUser);
@@ -107,7 +118,7 @@ public class UserService {
             throw new RuntimeException("Usuario nao encontardo no banco de dados.");
         }
 
-        if (!dto.getPassword().equals(newUser.getPassword())){
+        if (!passwordEncoder.matches(dto.getPassword(), newUser.getPassword())){
            throw new RuntimeException("Senha incorreta!"); 
         }
 

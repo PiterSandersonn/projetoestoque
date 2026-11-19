@@ -9,9 +9,13 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.projetoestoque.Services.CaixaService;
 import com.example.projetoestoque.Services.ServiceDashboardVendas;
 import com.example.projetoestoque.DTOVenda.CategoriasMaisVendidaDTO;
 import com.example.projetoestoque.DTOVenda.EstoqueBaixoDTO;
+import com.example.projetoestoque.Enum.EnumPeriodo;
+import com.example.projetoestoque.Models.Caixa;
+
 import java.util.List;
 
 @RestController
@@ -21,29 +25,18 @@ public class DashboardControleProdutosController {
     @Autowired 
     private ServiceDashboardVendas serviceDashboardVendas;
 
+    @Autowired 
+    private CaixaService caixaService;
     //Total vendas hoje.
-    @GetMapping("/totalVendaDia/{userId}")
-    public ResponseEntity<?> totalVendasDia(@PathVariable("userId") Long userId){
+    @GetMapping("/totalVendaPeriodo/{userId}/{periodo}")
+    public ResponseEntity<?> totalVendasDia(@PathVariable("userId") Long userId, @PathVariable("periodo") EnumPeriodo periodo){
         try {
-            BigDecimal totalVendas = this.serviceDashboardVendas.totalVendasHoje(userId);
+            BigDecimal totalVendas = this.serviceDashboardVendas.totalVendasPeriodo(userId, periodo);
             return ResponseEntity.ok().body(totalVendas);
-
         } catch (RuntimeException e) {
            return  ResponseEntity.badRequest().body("Ocorreu um erro: "+e.getMessage());
         }
-    }
-
-    //quantidade vendas do dia
-    @GetMapping("/quantidadeVendasDia/{userId}")
-    public ResponseEntity<?> quantidadeVendasDia(@PathVariable("userId") Long userId){
-        try {
-            Integer quantidadeVendas = this.serviceDashboardVendas.quantidadeVendasHoje(userId);
-            return ResponseEntity.ok().body(quantidadeVendas);
-
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body("Ocorreu um erro: "+e.getMessage());
-        }
-    }
+    }                                                                   
 
 
     // produtos com estoque inferior a 5
@@ -70,25 +63,21 @@ public class DashboardControleProdutosController {
         }
 
     }
-
-    //total de vendas do mes.
-    @GetMapping("/totalVendasMes/{userId}")
-    public ResponseEntity<?> totalVendasMes(@PathVariable("userId")Long userId){
+    @GetMapping("/diferencaDeCaixa/{userId}/{periodo}")
+    public ResponseEntity<?> diferencaDeCaixa(@PathVariable ("userId")Long userId, @PathVariable("periodo") EnumPeriodo periodo){
         try {
-            BigDecimal total = this.serviceDashboardVendas.totalVendasMes(userId);
-            return ResponseEntity.ok().body(total);
+            List<Caixa> diferencas = this.caixaService.diferencaDosCaixas(userId, periodo);
+            return ResponseEntity.ok().body(diferencas);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body("Ocorreu um erro: "+e.getMessage());
-            
         }
-
     }
 
     //categoria mais vendida.
-    @GetMapping("/categoriaMaisVendida/{userId}")
-    public ResponseEntity<?> categoriasMaisVendidas(@PathVariable("userId") Long userId){
+    @GetMapping("/categoriaMaisVendida/{userId}/{periodo}")
+    public ResponseEntity<?> categoriasMaisVendidas(@PathVariable("userId") Long userId, @PathVariable("periodo") EnumPeriodo periodo){
         try {
-            List<CategoriasMaisVendidaDTO> listaCategorias = this.serviceDashboardVendas.categoriaMaisVendida(userId);
+            List<CategoriasMaisVendidaDTO> listaCategorias = this.serviceDashboardVendas.categoriaMaisVendida(userId, periodo);
             return ResponseEntity.ok().body(listaCategorias);
             
         } catch (RuntimeException e) {
@@ -97,6 +86,21 @@ public class DashboardControleProdutosController {
         }
 
     }
+    @GetMapping("/quantidadeVendasPeriodo/{userId}/{periodo}")
+    public ResponseEntity<?> quantidadeVendasPeriodo(
+            @PathVariable("userId") Long userId,
+            @PathVariable("periodo") EnumPeriodo periodo
+    ) {
+        try {
+            Integer quantidade = this.serviceDashboardVendas.quantidadeVendasPeriodo(userId, periodo);
+
+            return ResponseEntity.ok(quantidade);
+
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body("Ocorreu um erro: " + e.getMessage());
+        }
+    }
+
 
 
 

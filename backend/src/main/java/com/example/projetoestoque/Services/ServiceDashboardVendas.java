@@ -1,15 +1,16 @@
 package com.example.projetoestoque.Services;
 
 import java.math.BigDecimal;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
 import com.example.projetoestoque.DTOVenda.CategoriasMaisVendidaDTO;
 import com.example.projetoestoque.DTOVenda.EstoqueBaixoDTO;
-import com.example.projetoestoque.DTOVenda.FormaPagamentoDTO;
 import com.example.projetoestoque.Models.*;
 import com.example.projetoestoque.ExceptionUserIdError.*;
+import com.example.projetoestoque.Enum.*;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -17,7 +18,6 @@ import org.springframework.stereotype.Service;
 import com.example.projetoestoque.Repository.ItemVendaRepository;
 import com.example.projetoestoque.Repository.ProdutoRepository;
 import com.example.projetoestoque.Repository.VendaRepository;
-import com.example.projetoestoque.Enum.*;
 
 @Service 
 public class ServiceDashboardVendas {
@@ -36,15 +36,41 @@ public class ServiceDashboardVendas {
 
 
 
-    //total de vendas hoje.
-    public BigDecimal totalVendasHoje(Long userId){
+    //total de vendas periodo.
+    public BigDecimal totalVendasPeriodo(Long userId, EnumPeriodo periodo){
 
         if(userId == null){
             throw new ExceptionUserId();
         }
+        
+        if (periodo == null) {
+            throw new RuntimeException("Periodo nao pode ser nulo.");
+        }
+
+
+        User usuario = this.userService.findBy(userId); 
+        if(usuario.getTipoUsuario() != TipoUsuarioEnum.ADMIN){
+            throw new RuntimeException("Somente administrados tem acesso a esse canal.");
+        }
+
+        LocalDate dataEscolida;
+
+        switch (periodo) {
+            case DIA:
+                dataEscolida = LocalDate.now();
+                break;
+            case SEMANA:
+                dataEscolida = LocalDate.now().with(DayOfWeek.MONDAY);
+                break;
+            case MES:
+                dataEscolida = LocalDate.now().withDayOfMonth(1);
+                break;
+            default:
+                throw new RuntimeException("Ocorreu um erro ao receber o periodo.");
+        }
 
         LocalDate hoje = LocalDate.now();
-        List<Venda> vendas = this.vendaRepository.findByDataVendaAndCaixaUserIdIdAndStatusPagamento(hoje, userId, StatusEnum.PAGO);
+        List<Venda> vendas = this.vendaRepository.findByDataVendaBetweenAndCaixaUserIdIdAndStatusPagamento(dataEscolida, hoje, userId, StatusEnum.PAGO);
 
         BigDecimal total = BigDecimal.ZERO;
 
@@ -60,15 +86,40 @@ public class ServiceDashboardVendas {
     }
 
 
-    //quantidade de vendas do dia.
-    public Integer quantidadeVendasHoje(Long userId){
+    //quantidade de vendas por periodo.
+    public Integer quantidadeVendasPeriodo(Long userId, EnumPeriodo periodo){
         if(userId == null){
             throw new ExceptionUserId();
+        }
+        if(periodo == null){
+            throw new RuntimeException("Periodo nao pode ser nulo.");
+        }
+
+        User usuario = this.userService.findBy(userId); 
+
+        if(usuario.getTipoUsuario() != TipoUsuarioEnum.ADMIN){
+            throw new RuntimeException("Somente administrados tem acesso a esse canal.");
+        }
+
+        LocalDate dataEscolhida;
+
+        switch (periodo) {
+            case DIA:
+                dataEscolhida = LocalDate.now();
+                break;
+            case SEMANA:
+                dataEscolhida = LocalDate.now().with(DayOfWeek.MONDAY);
+                break;
+            case MES:
+                dataEscolhida = LocalDate.now().withDayOfMonth(1);
+                break;
+            default:
+                throw new RuntimeException("Ocorreu um erro ao receber op periodo.");
         }
 
         LocalDate hoje = LocalDate.now();
 
-        List<Venda> vendas = this.vendaRepository.findByDataVendaAndCaixaUserIdIdAndStatusPagamento(hoje, userId, StatusEnum.PAGO);
+        List<Venda> vendas = this.vendaRepository.findByDataVendaBetweenAndCaixaUserIdIdAndStatusPagamento(dataEscolhida, hoje, userId, StatusEnum.PAGO);
 
         Integer quantidadeVendas = vendas.size();
 
@@ -77,39 +128,41 @@ public class ServiceDashboardVendas {
     }
 
 
-    //Total Vendas mes
-    public BigDecimal totalVendasMes(Long userId){
-
-        if(userId == null){
-            throw new ExceptionUserId();
-        }
-
-        User usuario = this.userService.findBy(userId);
-
-        List<Venda> vendasMes = this.vendaRepository.findByDataVendaBetweenAndCaixaUserIdIdAndStatusPagamento(LocalDate.now().withDayOfMonth(1),LocalDate.now(), usuario.getId(), StatusEnum.PAGO);
-
-        BigDecimal total = BigDecimal.ZERO;
-
-        for(Venda venda : vendasMes){
-            total = total.add(venda.getTotal());
-        }
-
-        return total;
-
-    }
-
 
     //Categoria mais vendida.
-    public List<CategoriasMaisVendidaDTO> categoriaMaisVendida(Long userId){
+    public List<CategoriasMaisVendidaDTO> categoriaMaisVendida(Long userId, EnumPeriodo periodo){
 
         if(userId == null){
             throw new ExceptionUserId();
         }
+        if(periodo == null){
+            throw new RuntimeException("Periodo nao pode ser nulo.");
+        }
 
-        this.userService.findBy(userId);
+        LocalDate dataEscolhida;
 
-        return this.itemVendaRepository.buscarCategoriasMaisVendidas(userId, StatusEnum.PAGO);
+        switch (periodo) {
+            case DIA :
+                dataEscolhida = LocalDate.now();
+                break;
+            case SEMANA:
+                dataEscolhida = LocalDate.now().with(DayOfWeek.MONDAY);
+                break;
+            case MES:
+                dataEscolhida = LocalDate.now().withDayOfMonth(1);
+                break;
+            default:
+                throw new RuntimeException("Ocorreun um erro ao receber o periodo.");
+        }
 
+        User usuario = this.userService.findBy(userId); 
+
+        if(usuario.getTipoUsuario() != TipoUsuarioEnum.ADMIN){
+            throw new RuntimeException("Somente administrados tem acesso a esse canal.");
+        }
+
+
+        return this.itemVendaRepository.buscarCategoriasMaisVendidas(userId, dataEscolhida, LocalDate.now(), StatusEnum.PAGO);
     }
 
 
@@ -120,7 +173,12 @@ public class ServiceDashboardVendas {
         if(userId == null){
             throw new ExceptionUserId();
         }
-        User usuario = this.userService.findBy(userId); // Aqui ja tratamos o erro internamente.
+       
+        User usuario = this.userService.findBy(userId); 
+
+        if(usuario.getTipoUsuario() != TipoUsuarioEnum.ADMIN){
+            throw new RuntimeException("Somente administrados tem acesso a esse canal.");
+        }
 
         List<Produto> produtos =  this.produtoRepository.findByUser_IdAndQuantidadeLessThanEqualOrderByQuantidadeAsc(usuario.getId(), BigDecimal.valueOf(5));
         List<EstoqueBaixoDTO> listaProdutos = new ArrayList<>();
@@ -154,54 +212,6 @@ public class ServiceDashboardVendas {
 
     }
 
-    //Vamos fazer um filtro por forma de pagamento diario.
-    public FormaPagamentoDTO VendasDiaFormaDePgamento(Long userId, FormaPagamentoEnum formaPagamento){
-        if(userId == null){
-            throw new RuntimeException("Id do ussuario nao pode ser nulo.");
-        }
-        if(formaPagamento == null){
-            throw new RuntimeException("Forma de pagamento ano pode ser nulo.");
 
-        }
-        List<Venda> vendas = this.vendaRepository.findByDataVendaAndCaixaUserIdIdAndPagamentoAndStatusPagamento(LocalDate.now(), userId, formaPagamento, StatusEnum.PAGO);
-        BigDecimal total = BigDecimal.ZERO;
-        for(Venda venda: vendas ){
-            if(venda.getTotal() != null){
-                total = total.add(venda.getTotal());
-            }
-        }
-        FormaPagamentoDTO retorno = new FormaPagamentoDTO();
-        retorno.setFormaPagamento(formaPagamento);
-        retorno.setTotal(total);
-
-        return retorno;
-    }
-
-    //filtro por forma de pagamento mensal.
-    public FormaPagamentoDTO VendasMensalFormaDePagamento(Long userId, FormaPagamentoEnum formaPagamento){
-        if(userId == null){
-            throw new RuntimeException("Id do usuario nao pode ser nulo.");
-        }
-
-        if(formaPagamento == null){
-            throw new RuntimeException("Forma de pagamento nao pode ser nulo.");
-
-        }
-        List<Venda> vendas = this.vendaRepository.findByDataVendaBetweenAndCaixaUserIdIdAndPagamentoAndStatusPagamento(LocalDate.now().withDayOfMonth(1), LocalDate.now(), userId, formaPagamento, StatusEnum.PAGO);
-
-        BigDecimal totalMes = BigDecimal.ZERO;
-        for(Venda venda: vendas){
-            if(venda.getTotal() != null){
-                totalMes = totalMes.add(venda.getTotal());
-            } 
-            
-        }
-
-        FormaPagamentoDTO retornoMensal = new FormaPagamentoDTO();
-        retornoMensal.setFormaPagamento(formaPagamento);
-        retornoMensal.setTotal(totalMes);
-        
-        return retornoMensal;
-    }
     
 }
